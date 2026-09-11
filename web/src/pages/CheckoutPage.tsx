@@ -41,6 +41,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
   const [checking, setChecking] = useState(false);
   const [modalEmail, setModalEmail] = useState<string | null>(null);
   const [recognizedEmail, setRecognizedEmail] = useState<string | null>(null);
+  const [unrecognizedEmail, setUnrecognizedEmail] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<{ orderId: string; linked: boolean } | null>(
     null,
@@ -49,8 +50,11 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
   /**
    * Two separate sets, and the separation matters.
    *
-   * `alreadyChecked` stops us asking the server the same question twice --
-   * users click back into the email field, or edit and undo.
+   * `alreadyChecked` stops us re-asking about an address already known to be
+   * registered. Only positive answers go in it, deliberately: a "no" can become
+   * a "yes" the moment someone registers, so caching one means a user who
+   * checks out, registers, and comes back is never recognised until they
+   * reload. Re-asking about an unknown address costs one debounced request.
    *
    * `dismissed` remembers that the user closed the modal for an address, so it
    * does not reappear on their next keystroke. Without it, skipping the modal
@@ -103,11 +107,15 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
     api
       .recognize(normalizedEmail, controller.signal)
       .then((result) => {
-        alreadyChecked.current.add(normalizedEmail);
         setChecking(false);
         if (result.recognized) {
+          alreadyChecked.current.add(normalizedEmail);
+          setUnrecognizedEmail(null);
           setRecognizedEmail(normalizedEmail);
           setModalEmail(normalizedEmail);
+        } else {
+          // Recorded so the field can say so. Not cached -- see above.
+          setUnrecognizedEmail(normalizedEmail);
         }
       })
       .catch((error) => {
@@ -144,6 +152,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
   }, [user]);
 
   function update(field: keyof FormValues, value: string) {
+    if (field === 'email') setUnrecognizedEmail(null);
     setForm((previous) => ({ ...previous, [field]: value }));
     // Clear a field's error the moment it is edited -- a complaint about what
     // the user just changed is stale by definition.
@@ -171,6 +180,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
     await api.logout().catch(() => undefined);
     onUserChange(null);
     setRecognizedEmail(null);
+    setUnrecognizedEmail(null);
     // Let the same address be recognised again after signing out.
     alreadyChecked.current.clear();
     dismissed.current.clear();
@@ -284,7 +294,12 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
                 ? 'Checking for an existing account…'
                 : user
                   ? 'Using your account email.'
-                  : undefined
+                  : unrecognizedEmail && unrecognizedEmail === normalizedEmail
+                    ? // Without this the check is invisible: a user who is not
+                      // recognised sees nothing at all and cannot tell whether
+                      // the feature ran, is still running, or is broken.
+                      'No account found for this email — you can continue as a guest.'
+                    : undefined
             }
             onChange={(value) => update('email', value)}
           />
