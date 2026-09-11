@@ -60,3 +60,18 @@ application, in order, recorded as the work happened.
 >
 > So at minimum we are looking at 2 entities: users and checkouts. We can add
 > add others as per our need but this are essential.
+
+## 3. Clarifying how login state persists
+
+> Can you explain the part 1.
+
+(Asked in response to an outline of the open schema questions, where part 1 was
+"where does login state live after the code is verified?". No code was written
+in response — the answer covered HTTP being stateless, self-contained tokens
+versus session references, and cookie versus localStorage storage, so that the
+choice below could be made deliberately rather than by default.)
+
+## 4. Sessions table
+
+> Yeah, we will go with the sessions rows and httpOnly cookies. Therefore add
+> the sessions table.
