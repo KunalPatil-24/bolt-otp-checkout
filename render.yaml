@@ -19,7 +19,13 @@ services:
     #
     # migrate:prod runs the compiled JavaScript rather than tsx, which is a
     # devDependency and should not be relied on at deploy time.
-    buildCommand: npm ci && npm run build && npm run migrate:prod
+    #
+    # --include=dev is required, not optional. NODE_ENV=production is set below
+    # and applies to the build as well as the runtime, and npm omits
+    # devDependencies when it sees it -- which silently drops TypeScript and
+    # every @types package, so the build fails on types it appears to have.
+    # The flag makes the intent explicit rather than depending on NODE_ENV.
+    buildCommand: npm ci --include=dev && npm run build && npm run migrate:prod
     startCommand: npm run start
 
     # Render polls this to decide whether a deploy succeeded. It reports 503
