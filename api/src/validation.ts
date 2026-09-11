@@ -64,3 +64,52 @@ export function fieldErrors(error: z.ZodError): Record<string, string> {
   }
   return result;
 }
+
+/**
+ * Phone numbers are validated loosely on purpose.
+ *
+ * Formats vary enormously by country -- +44 20 7946 0958, (415) 555-0134,
+ * 09012345678 -- and a strict pattern built around one country's convention
+ * rejects real people with real numbers. We check the shape is plausible
+ * (digits plus common separators, at least seven digits) and leave it there.
+ * Anything stricter would need a library and a country context we do not have.
+ */
+export const phoneSchema = z
+  .string({ error: 'Enter a phone number' })
+  .transform((value) => value.trim())
+  .pipe(
+    z
+      .string()
+      .max(25, 'That phone number is too long')
+      .regex(/^\+?[\d\s().-]+$/, 'Enter a valid phone number')
+      // Counts actual digits, so formatting characters cannot pad a short
+      // number into looking long enough.
+      .refine(
+        (value) => (value.match(/\d/g) ?? []).length >= 7,
+        'Enter a valid phone number',
+      ),
+  );
+
+/** A required free-text field, trimmed, with its own message. */
+const requiredText = (max: number, message: string) =>
+  z
+    .string({ error: message })
+    .transform((value) => value.trim())
+    .pipe(z.string().min(1, message).max(max, 'That is too long'));
+
+export const orderSchema = z.object({
+  email: emailSchema,
+  phone: phoneSchema,
+  addressLine1: requiredText(200, 'Street address is required'),
+  // The only optional field: plenty of addresses have no second line. An empty
+  // string is accepted and stored as NULL rather than as "".
+  addressLine2: z
+    .string()
+    .transform((value) => value.trim())
+    .pipe(z.string().max(200, 'That is too long'))
+    .optional(),
+  city: requiredText(100, 'City is required'),
+  state: requiredText(100, 'State or province is required'),
+  postalCode: requiredText(20, 'Postal code is required'),
+  country: requiredText(100, 'Country is required'),
+});
