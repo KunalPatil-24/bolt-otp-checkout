@@ -1,42 +1,42 @@
 import { useEffect, useState } from 'react';
 import { api, type User } from './lib/api';
+import { CheckoutPage } from './pages/CheckoutPage';
 
-/**
- * Temporary connectivity check. Replaced by the real screens next -- it exists
- * to prove the browser can reach the API across origins and that the session
- * cookie survives the trip.
- */
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ok' | 'failed'>('loading');
-  const [detail, setDetail] = useState('');
+  const [loading, setLoading] = useState(true);
 
+  /**
+   * Ask the server who we are, once, on load.
+   *
+   * The session lives in an httpOnly cookie that JavaScript cannot read by
+   * design, so this request is the only way the app can find out. A refresh
+   * wipes React's state while the cookie survives, which is exactly the case
+   * this handles.
+   */
   useEffect(() => {
     api
       .me()
-      .then((result) => {
-        setUser(result.user);
-        setStatus('ok');
-        setDetail(result.user ? `signed in as ${result.user.email}` : 'nobody signed in');
-      })
-      .catch((error: unknown) => {
-        setStatus('failed');
-        setDetail(error instanceof Error ? error.message : String(error));
-      });
+      .then((result) => setUser(result.user))
+      .catch(() => setUser(null)) // unreachable API: carry on as a guest
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <main>
-      <h1>Bolt</h1>
-      <p>
-        API connection: <strong>{status}</strong>
-      </p>
-      <p>{detail}</p>
-      {user && (
-        <p>
-          {user.firstName} {user.lastName}
-        </p>
-      )}
-    </main>
+    <div className="app">
+      <header className="app-header">
+        <span className="brand">
+          Bolt<span className="brand-dot">.</span>
+        </span>
+      </header>
+
+      <main className="app-main">
+        {loading ? (
+          <div className="card card-loading">Loading…</div>
+        ) : (
+          <CheckoutPage user={user} onUserChange={setUser} />
+        )}
+      </main>
+    </div>
   );
 }

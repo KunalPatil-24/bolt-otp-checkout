@@ -173,3 +173,24 @@ address. No code written.)
 ## 15. Frontend
 
 > Now let's move to the frontend.
+
+## 16. Recognition flow: firing rate, races, and failure handling
+
+> > How often the check fires. Typing an email is ~18 keystrokes. Firing per
+> > keystroke is 18 requests for one answer.
+> > What happens when an earlier, slower request answers after a later one.
+> > Responses don't arrive in the order you sent them - this is a genuine bug
+> > source, not a hypothetical.
+> > What happens when the recognition call fails outright. The user is
+> > mid-checkout; what should they see?
+>
+> What do you suggest for this?
+
+(Explanatory, ahead of building the checkout page. Covered debounce versus
+throttle and why 400ms, gating on a regex so the request only fires for a
+plausibly complete address, AbortController in useEffect cleanup as the fix for
+out-of-order responses, why a failed recognition should be silent, and why a
+dismissed modal must be remembered separately from an already-checked address.
+No code written.)
+
+> go ahead with all of it
