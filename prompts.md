@@ -169,3 +169,7 @@ trade-offs between GET and POST for a read-only endpoint that takes an email
 address. No code written.)
 
 > Let's go with the bare boolean and POST
+
+## 15. Frontend
+
+> Now let's move to the frontend.

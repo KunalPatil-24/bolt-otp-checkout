@@ -1,5 +1,6 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import { isDatabaseReachable } from './db.js';
 import { errorHandler, notFoundHandler } from './errors.js';
 import { authRouter } from './routes/auth.js';
@@ -7,6 +8,46 @@ import { ordersRouter } from './routes/orders.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 8080);
+
+/**
+ * Browser origins permitted to call this API, comma-separated.
+ *
+ * The frontend is served from a different origin than the API -- a different
+ * port locally, a different domain in production -- so every call from it is
+ * cross-origin, and the browser will not hand the response to the page unless
+ * this API names that origin.
+ */
+const webOrigins = (process.env.WEB_ORIGINS ?? 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+/**
+ * `credentials: true` is what allows the session cookie to travel with these
+ * cross-origin requests. It also makes the allowlist mandatory: browsers reject
+ * a wildcard origin once credentials are involved, which is a deliberate
+ * protection -- otherwise any site on the internet could call this API carrying
+ * a logged-in user's cookie and read the reply.
+ *
+ * The frontend must opt in as well, with credentials: 'include' on its fetch
+ * calls. Both halves are required; either alone and the cookie is dropped
+ * silently, with no error and no session.
+ */
+app.use(
+  cors({
+    origin(origin, callback) {
+      // No Origin header means this is not a browser cross-origin request --
+      // curl, a health check, a same-origin call -- so there is nothing to
+      // grant.
+      if (!origin) return callback(null, true);
+      // Deny by not setting the header, rather than by raising an error: the
+      // browser blocks the read either way, and a rejected origin is not a
+      // server fault worth a 500.
+      return callback(null, webOrigins.includes(origin));
+    },
+    credentials: true,
+  }),
+);
 
 // Parse JSON bodies, with a size limit so one request cannot exhaust memory.
 app.use(express.json({ limit: '16kb' }));
