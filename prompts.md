@@ -128,3 +128,12 @@ and walked through every constraint and index in the schema. No code changed.)
 ## 10. Migration runner
 
 > Now let's add the migration runner.
+
+## 11. SQL injection protection
+
+> SQL injection protection
+>
+> * Establish a database-querying pattern where user-provided values are passed
+>   as parameters rather than interpolated into SQL strings.
+> * Structure the database access code so parameterized queries are the
+>   normal/default approach for future endpoints.

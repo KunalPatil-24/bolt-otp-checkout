@@ -58,24 +58,70 @@ pool.on('error', (error) => {
 });
 
 /**
- * Runs a query and returns the result.
+ * A piece of SQL with its values kept separate.
+ */
+export type SqlQuery = { text: string; values: unknown[] };
+
+/**
+ * Builds a parameterised query from a template literal.
  *
- * Values are always passed separately, as $1, $2, ... rather than concatenated
- * into the SQL string:
+ *     sql`SELECT * FROM users WHERE LOWER(email) = ${email}`
  *
- *     query('SELECT * FROM users WHERE email = $1', [email])   // correct
- *     query(`SELECT * FROM users WHERE email = '${email}'`)    // never
+ * This looks like string interpolation and is the opposite of it. JavaScript
+ * hands a tag function the literal chunks and the interpolated values as two
+ * separate arguments -- the value never becomes part of the string. We emit a
+ * numbered placeholder in its place and collect the value, producing:
  *
- * The driver sends the query text and the values to Postgres as separate
- * things, so a value is never parsed as SQL. That is what makes injection
- * structurally impossible here rather than merely something we remember to
- * avoid.
+ *     { text: 'SELECT * FROM users WHERE LOWER(email) = $1', values: [email] }
+ *
+ * The point is ergonomic rather than cryptographic: writing a query the natural
+ * way now produces a safe one, instead of safety depending on remembering to
+ * pass a second argument.
+ *
+ * NOTE: this protects VALUES only. Identifiers -- table and column names --
+ * cannot be parameterised by any database driver, so `ORDER BY ${column}` is
+ * still unsafe. Anything of that sort needs an allowlist of permitted names.
+ */
+export function sql(strings: TemplateStringsArray, ...values: unknown[]): SqlQuery {
+  let text = '';
+  const collected: unknown[] = [];
+
+  strings.forEach((chunk, index) => {
+    text += chunk;
+    if (index < values.length) {
+      collected.push(values[index]);
+      text += `$${collected.length}`;
+    }
+  });
+
+  return { text, values: collected };
+}
+
+/**
+ * Runs a query.
+ *
+ * Accepts either the `sql` tagged form, which is the default for endpoints:
+ *
+ *     query(sql`SELECT * FROM users WHERE id = ${id}`)
+ *
+ * or an explicit text-and-parameters pair, for queries built dynamically:
+ *
+ *     query('SELECT * FROM users WHERE id = $1', [id])
+ *
+ * Both send the query text and the values to Postgres as separate things, so a
+ * value is never parsed as SQL. That is what makes injection structurally
+ * impossible here rather than something we have to remember to avoid. There is
+ * deliberately no overload that takes a finished string with values already
+ * embedded.
  */
 export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
-  text: string,
+  textOrQuery: string | SqlQuery,
   params: unknown[] = [],
 ): Promise<pg.QueryResult<T>> {
-  return pool.query<T>(text, params);
+  if (typeof textOrQuery === 'string') {
+    return pool.query<T>(textOrQuery, params);
+  }
+  return pool.query<T>(textOrQuery.text, textOrQuery.values);
 }
 
 /** True if the database is reachable. Used by the health endpoint. */
