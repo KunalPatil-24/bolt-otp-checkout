@@ -203,6 +203,9 @@ body {
 }
 .modal-title { margin: 0 0 6px; font-size: 19px; letter-spacing: -0.02em; }
 .modal-subtitle { margin: 0 0 20px; font-size: 14px; color: var(--text-muted); }
+/* Uses the same green as the signed-in banner, so 'this worked' reads the
+   same way throughout. */
+.modal-found { color: var(--success); font-weight: 600; }
 
 .code-input {
   width: 100%;

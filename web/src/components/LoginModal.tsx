@@ -76,8 +76,12 @@ export function LoginModal({ email, onSuccess, onSkip }: LoginModalProps) {
           Welcome back
         </h2>
         <p className="modal-subtitle">
-          We recognise <strong>{email}</strong>. Enter the 6-digit code from when you
-          registered.
+          {/* The confirmation is the part worth colouring: it tells the user the
+              account exists, which is why the dialog appeared at all. */}
+          <span className="modal-found">We found your account</span> for{' '}
+          <strong>{email}</strong>.
+          <br />
+          Enter the 6-digit code you were given when you registered.
         </p>
 
         <form onSubmit={handleSubmit} noValidate>
