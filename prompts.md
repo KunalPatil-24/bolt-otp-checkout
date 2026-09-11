@@ -143,3 +143,17 @@ and walked through every constraint and index in the schema. No code changed.)
 > now one thing we should we add is the error shapes there should be some
 > structure to them. Because if there is not structure, each error might take
 > different shape.
+
+## 13. Registration endpoint: code generation and duplicate handling
+
+> A. One of the most important parts is how the code generated. I suggest that
+> Generate the 6-digit login code using a cryptographically secure
+> random-number generator available in Node.js, rather than Math.random(), but
+> you can suggest me the better alternatives.
+>
+> B. The other thing is about the duplicate regsitrations, consider both the
+> normal condition and as well as the concurrent condtion. Do not rely only on
+> an application-level "check then insert" because two concurrent requests could
+> both observe that the email does not exist.
+> Use the database's uniqueness constraint as the final guarantee that duplicate
+> emails cannot be stored.

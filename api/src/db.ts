@@ -133,3 +133,19 @@ export async function isDatabaseReachable(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * True if this error is Postgres refusing a duplicate.
+ *
+ * SQLSTATE 23505 is unique_violation. Catching it is how we let the database's
+ * unique index be the authority on duplicates rather than checking first --
+ * a check followed by an insert has a gap between them in which another request
+ * can insert the same value.
+ */
+export function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === '23505'
+  );
+}
