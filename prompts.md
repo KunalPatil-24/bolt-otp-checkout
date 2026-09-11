@@ -194,3 +194,7 @@ dismissed modal must be remembered separately from an already-checked address.
 No code written.)
 
 > go ahead with all of it
+
+## 17. Registration page
+
+> Now let's do the registration page

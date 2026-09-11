@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { ApiError, api, type User } from '../lib/api';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import { LoginModal } from '../components/LoginModal';
@@ -256,7 +257,10 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
           </div>
         ) : (
           <div className="banner">
-            <span className="muted">Checking out as a guest.</span>
+            <span className="muted">
+              Checking out as a guest. <Link to="/register">Register</Link> to get a
+              login code.
+            </span>
           </div>
         )}
 

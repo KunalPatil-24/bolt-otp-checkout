@@ -49,10 +49,26 @@ body {
 .app { min-height: 100vh; display: flex; flex-direction: column; }
 
 .app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   padding: 16px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
+.brand { color: var(--text); text-decoration: none; }
+.app-nav { display: flex; gap: 4px; }
+.nav-link {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.nav-link:hover { color: var(--text); }
+.nav-link-active { background: var(--bg); color: var(--text); }
 .brand { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
 .brand-dot { color: var(--accent); }
 
@@ -149,6 +165,8 @@ body {
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
+  /* Links styled as buttons must not keep the underline. */
+  text-decoration: none;
   transition: background 0.15s, border-color 0.15s;
 }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -208,6 +226,36 @@ body {
 
 .modal-error { margin: 10px 0 0; font-size: 13px; color: var(--danger); text-align: center; }
 .modal-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+
+a { color: var(--accent); }
+
+.card-footer {
+  margin: 20px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* The one-time code. Dashed border to read as "transient, take a copy". */
+.code-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px;
+  margin-bottom: 14px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+.code-digits {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.notice { margin: 0 0 20px; font-size: 13px; color: var(--text-muted); }
 
 .confirmation { text-align: center; }
 .confirmation h1 { margin: 12px 0 6px; font-size: 22px; }
