@@ -17,6 +17,9 @@
     "strict": true,
     // Makes arr[0] typed as possibly-undefined, which is the truth.
     "noUncheckedIndexedAccess": true,
+    // Unused imports and variables become errors rather than quiet clutter.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
 
     "esModuleInterop": true,
     "skipLibCheck": true,

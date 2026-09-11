@@ -137,3 +137,9 @@ and walked through every constraint and index in the schema. No code changed.)
 >   as parameters rather than interpolated into SQL strings.
 > * Structure the database access code so parameterized queries are the
 >   normal/default approach for future endpoints.
+
+## 12. Consistent error shape
+
+> now one thing we should we add is the error shapes there should be some
+> structure to them. Because if there is not structure, each error might take
+> different shape.
