@@ -1,17 +1,24 @@
 import express from 'express';
+import { isDatabaseReachable } from './db.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 8080);
 
 /**
- * A health endpoint: a cheap, dependency-free way to ask "is this process
- * alive?". Hosting platforms poll something like this to decide whether a
- * deploy succeeded, so it is worth having from the very first commit.
+ * Health check. Reports whether the process is alive AND whether it can reach
+ * the database, because a server that is running but cannot query anything is
+ * not actually healthy -- and a host watching this endpoint should know the
+ * difference.
  *
- * It will grow a database check once there is a database to check.
+ * Returns 503 when the database is unreachable so that automated checks see a
+ * failure status rather than having to parse the body.
  */
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
+app.get('/api/health', async (_req, res) => {
+  const databaseUp = await isDatabaseReachable();
+  res.status(databaseUp ? 200 : 503).json({
+    status: databaseUp ? 'ok' : 'degraded',
+    database: databaseUp ? 'ok' : 'unreachable',
+  });
 });
 
 app.listen(port, () => {

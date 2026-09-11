@@ -105,3 +105,22 @@ table — what to key it on, and why a sliding window beats a fixed one. No code
 written yet; the table was proposed and left pending approval.)
 
 > go ahead and add the login_attempts table
+
+## 8. Email case sensitivity, constraints and indexes
+
+> 1.) Hey, I had a small doubt about the the email matching, If I type
+> Kunal@gmail.com, and kunal@gmail.com, it should be treated same.
+>
+> 2.) Also explain me the constraints and indexes.
+
+(Explanatory. Confirmed the case-insensitive behaviour against a live database
+and walked through every constraint and index in the schema. No code changed.)
+
+## 9. Database connection and pool sizing
+
+> Now let's move to the API foundation.
+> Firstly we need to create and connect with our database.
+> And we need a pool of connections instead a single connection because user can
+> send the requests at the same time. Now we are not building some large
+> applications therefore we will keep the number of connections low.
+> What do you suggest, how many should we keep?
