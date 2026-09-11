@@ -124,3 +124,7 @@ and walked through every constraint and index in the schema. No code changed.)
 > send the requests at the same time. Now we are not building some large
 > applications therefore we will keep the number of connections low.
 > What do you suggest, how many should we keep?
+
+## 10. Migration runner
+
+> Now let's add the migration runner.

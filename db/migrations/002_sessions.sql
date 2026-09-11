@@ -15,7 +15,6 @@
 -- be revoked immediately by deleting the row.
 -- ============================================================================
 
-BEGIN;
 
 CREATE TABLE sessions (
     id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -38,5 +37,3 @@ CREATE INDEX sessions_user_id_idx ON sessions (user_id);
 
 -- Supports clearing out expired rows, which would otherwise accumulate forever.
 CREATE INDEX sessions_expires_at_idx ON sessions (expires_at);
-
-COMMIT;

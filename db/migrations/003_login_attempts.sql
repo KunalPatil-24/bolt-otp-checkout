@@ -26,7 +26,6 @@
 -- attack?" a question that can actually be answered.
 -- ============================================================================
 
-BEGIN;
 
 CREATE TABLE login_attempts (
     id         BIGSERIAL   PRIMARY KEY,
@@ -51,5 +50,3 @@ CREATE TABLE login_attempts (
 -- email before scanning the range.
 CREATE INDEX login_attempts_email_created_idx
     ON login_attempts (LOWER(email), created_at DESC);
-
-COMMIT;

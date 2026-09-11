@@ -2,15 +2,17 @@
 -- 001_init.sql — initial schema
 --
 -- Apply with:
---     psql "$DATABASE_URL" -f db/migrations/001_init.sql
+--     npm run migrate            (from api/, applies all pending)
+--     psql -1 "$DATABASE_URL" -f db/migrations/001_init.sql
 --
 -- Requires Postgres 13+, for the built-in gen_random_uuid().
 --
--- Wrapped in a transaction: if any statement below fails, none of them apply,
--- so the schema is never left half-built.
+-- No BEGIN/COMMIT here: the migration runner wraps each file in a transaction
+-- together with its bookkeeping row, so the two can never disagree. A file-level
+-- BEGIN/COMMIT would end that outer transaction early. Use psql -1 to get the
+-- same atomicity when applying by hand.
 -- ============================================================================
 
-BEGIN;
 
 -- ----------------------------------------------------------------------------
 -- users
@@ -66,5 +68,3 @@ CREATE TABLE orders (
 -- right and should survive deletion of the account that placed it.
 
 CREATE INDEX orders_user_id_idx ON orders (user_id);
-
-COMMIT;
