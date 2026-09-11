@@ -32,6 +32,9 @@ export const nameSchema = z
   .transform((value) => value.trim())
   .pipe(z.string().min(1, 'This field is required').max(100, 'That is too long'));
 
+/** The recognition check needs nothing but an address. */
+export const recognizeSchema = z.object({ email: emailSchema });
+
 export const registerSchema = z.object({
   email: emailSchema,
   firstName: nameSchema,

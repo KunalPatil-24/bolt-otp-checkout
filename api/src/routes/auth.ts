@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { isUniqueViolation, query, sql } from '../db.js';
 import { ApiError } from '../errors.js';
 import { generateLoginCode, hashLoginCode } from '../crypto.js';
-import { fieldErrors, registerSchema } from '../validation.js';
+import { fieldErrors, recognizeSchema, registerSchema } from '../validation.js';
 
 export const authRouter = Router();
 
@@ -64,4 +64,49 @@ authRouter.post('/register', async (req, res) => {
     }
     throw error; // anything else is a bug; the error handler turns it into a 500
   }
+});
+
+/* ---------------------------------------------------------------------------
+ * POST /api/auth/recognize
+ *
+ * Answers one question for the checkout form: is this email registered?
+ *
+ * POST rather than GET, despite this being a pure read. A GET would put the
+ * email address in the URL, and URLs travel further than people expect: server
+ * access logs kept for months, browser history, the Referer header sent to any
+ * third-party script on the page, proxies, analytics. A request body appears in
+ * none of those. The cost is a semantically inaccurate verb and a cached CORS
+ * preflight, both of which are cheaper than permanently logging real people's
+ * email addresses.
+ *
+ * The response is a bare boolean and deliberately carries no name. The caller
+ * has typed an email and proved nothing, so returning a name would let anyone
+ * with a list of addresses turn it into a list of names matched to addresses --
+ * exactly what makes a phishing mail convincing. The name is revealed only
+ * after the code is verified.
+ *
+ * This endpoint does inherently reveal whether an address is registered. That
+ * cannot be avoided: it is the feature the flow is built on. What it can do is
+ * reveal nothing further.
+ * ------------------------------------------------------------------------- */
+authRouter.post('/recognize', async (req, res) => {
+  const parsed = recognizeSchema.safeParse(req.body);
+
+  // A malformed address is answered "no" rather than rejected as a validation
+  // error. This is a lookup, and "is 'asdf@' registered?" has a truthful
+  // answer. The frontend calls this while the user is still typing, so an
+  // incomplete address is an ordinary occurrence, not a fault.
+  if (!parsed.success) {
+    res.json({ recognized: false });
+    return;
+  }
+
+  // SELECT 1, not SELECT *: we need to know whether a row exists, not what is
+  // in it. Fetching the row would pull the stored code hash into application
+  // memory for no reason.
+  const { rows } = await query(sql`
+    SELECT 1 FROM users WHERE LOWER(email) = ${parsed.data.email}
+  `);
+
+  res.json({ recognized: rows.length > 0 });
 });

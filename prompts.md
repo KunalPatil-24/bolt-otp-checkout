@@ -157,3 +157,15 @@ and walked through every constraint and index in the schema. No code changed.)
 > both observe that the email does not exist.
 > Use the database's uniqueness constraint as the final guarantee that duplicate
 > emails cannot be stored.
+
+## 14. Recognition endpoint: what to reveal, and GET vs POST
+
+> What are the other options that we can reveal. For second I honestly don't
+> know, you first tell me both's pros and then I will decide.
+
+(Explanatory, ahead of building the endpoint. Covered what a recognition
+response could include beyond a yes/no and the privacy cost of each, and the
+trade-offs between GET and POST for a read-only endpoint that takes an email
+address. No code written.)
+
+> Let's go with the bare boolean and POST
