@@ -75,3 +75,33 @@ choice below could be made deliberately rather than by default.)
 
 > Yeah, we will go with the sessions rows and httpOnly cookies. Therefore add
 > the sessions table.
+
+## 5. Checking the guest checkout case against the schema
+
+> Hey, what about the guest case? We have been mentioned in the assignment that
+> a person should be able to checkout the order without having registered. How
+> does that affect out schema?
+
+## 6. Session lifetime and persistence policy
+
+> Hey, what about the login persists after the code is verified?
+
+(The mechanism had already been settled — session rows plus an httpOnly cookie,
+with the table added in 002. This covered the remaining policy questions: the
+end-to-end lifecycle including restoring a session on page load via an
+/api/auth/me call, how long a session should last, absolute versus sliding
+expiry, and cleanup of expired rows. No schema change was needed, since
+expires_at already supports any of these.)
+
+## 7. Rate limiting the login code
+
+> Hey one thing crossed my mind that the assignment has given a code of just
+> digits which means 1 million permutations. It can be easily bruteforced if a
+> user keep sending verification requests. We need to implent some limiting
+> operations on it. How can we do that?
+
+(Covered where to hold the counter — in-memory versus Redis versus a Postgres
+table — what to key it on, and why a sliding window beats a fixed one. No code
+written yet; the table was proposed and left pending approval.)
+
+> go ahead and add the login_attempts table
