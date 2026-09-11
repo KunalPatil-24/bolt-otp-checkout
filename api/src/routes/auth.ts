@@ -1,8 +1,14 @@
 import { Router } from 'express';
 import { isUniqueViolation, query, sql } from '../db.js';
 import { ApiError } from '../errors.js';
-import { generateLoginCode, hashLoginCode } from '../crypto.js';
-import { fieldErrors, recognizeSchema, registerSchema } from '../validation.js';
+import {
+  equalizeVerificationTime,
+  generateLoginCode,
+  hashLoginCode,
+  verifyLoginCode,
+} from '../crypto.js';
+import { createSession } from '../session.js';
+import { fieldErrors, loginSchema, recognizeSchema, registerSchema } from '../validation.js';
 
 export const authRouter = Router();
 
@@ -109,4 +115,84 @@ authRouter.post('/recognize', async (req, res) => {
   `);
 
   res.json({ recognized: rows.length > 0 });
+});
+
+/**
+ * Rate limit: at most this many failed attempts per email address per window.
+ *
+ * A 6-digit code is 10^6 possibilities; at 100 requests a second an attacker
+ * expects to find one in under two hours. Five attempts per quarter hour turns
+ * that into roughly 28 years.
+ */
+const MAX_FAILURES = 5;
+const WINDOW_MINUTES = 15;
+
+/* ---------------------------------------------------------------------------
+ * POST /api/auth/login
+ *
+ * Verifies a code and starts a session.
+ * ------------------------------------------------------------------------- */
+authRouter.post('/login', async (req, res) => {
+  const parsed = loginSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw ApiError.badRequest('Enter the 6-digit code.', fieldErrors(parsed.error));
+  }
+
+  const { email, code } = parsed.data;
+
+  // Checked before any work is done, so a locked-out attacker cannot even make
+  // us spend the ~100ms of bcrypt per guess -- otherwise the rate limit would
+  // still leave a cheap way to burn the server's CPU.
+  const { rows: counted } = await query<{ failures: number }>(sql`
+    SELECT count(*)::int AS failures
+      FROM login_attempts
+     WHERE LOWER(email) = ${email}
+       AND succeeded = false
+       AND created_at > now() - (${WINDOW_MINUTES}::int * INTERVAL '1 minute')
+  `);
+
+  if ((counted[0]?.failures ?? 0) >= MAX_FAILURES) {
+    // Note this locks out the correct code too. That is the point -- a limit
+    // an attacker could step around by eventually guessing right would not be
+    // a limit. The cost is that someone who knows an address can deliberately
+    // lock its owner out for the window; keying on IP as well would reduce
+    // that, at the expense of users behind shared NAT.
+    throw ApiError.tooManyRequests(
+      `Too many incorrect codes. Please try again in ${WINDOW_MINUTES} minutes.`,
+    );
+  }
+
+  const { rows } = await query<UserRow & { login_code_hash: string }>(sql`
+    SELECT id, email, first_name, last_name, login_code_hash
+      FROM users
+     WHERE LOWER(email) = ${email}
+  `);
+  const user = rows[0];
+
+  let success = false;
+  if (user) {
+    success = await verifyLoginCode(code, user.login_code_hash);
+  } else {
+    // Spend the same time we would have spent verifying, so that response
+    // latency does not distinguish a real account from an unknown one.
+    await equalizeVerificationTime();
+  }
+
+  // Recorded either way: successes make the log a usable audit trail, and only
+  // failures count toward the limit.
+  await query(sql`
+    INSERT INTO login_attempts (email, succeeded) VALUES (${email}, ${success})
+  `);
+
+  if (!user || !success) {
+    // One message for both "no such account" and "wrong code". Telling them
+    // apart would confirm which addresses are registered -- and while
+    // /recognize already reveals exactly that, it does so because the product
+    // requires it. Leaking it a second time, where nothing requires it, would
+    // be gratuitous.
+    throw ApiError.unauthorized('invalid_code', 'That code is not correct.');
+  }
+
+  await createSession(user.id, res);
+  res.json({ user: toPublicUser(user) });
 });

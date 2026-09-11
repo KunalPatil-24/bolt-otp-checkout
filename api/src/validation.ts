@@ -35,6 +35,14 @@ export const nameSchema = z
 /** The recognition check needs nothing but an address. */
 export const recognizeSchema = z.object({ email: emailSchema });
 
+/** Exactly six digits. "12345" and "12345a" are both rejected. */
+export const codeSchema = z
+  .string({ error: 'Enter the 6-digit code' })
+  .transform((value) => value.trim())
+  .pipe(z.string().regex(/^\d{6}$/, 'Enter the 6-digit code'));
+
+export const loginSchema = z.object({ email: emailSchema, code: codeSchema });
+
 export const registerSchema = z.object({
   email: emailSchema,
   firstName: nameSchema,
