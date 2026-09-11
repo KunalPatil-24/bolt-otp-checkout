@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+
+    // NodeNext is what makes the ".js extension on relative imports" rule
+    // apply. It tells TypeScript to resolve modules exactly the way Node does
+    // at runtime, so what compiles is what runs.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    "rootDir": "src",
+    "outDir": "dist",
+
+    // strict turns on the whole family of type-safety checks. Left off, most of
+    // TypeScript's value disappears.
+    "strict": true,
+    // Makes arr[0] typed as possibly-undefined, which is the truth.
+    "noUncheckedIndexedAccess": true,
+
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"]
+}
