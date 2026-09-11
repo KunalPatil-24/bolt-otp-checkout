@@ -198,3 +198,16 @@ No code written.)
 ## 17. Registration page
 
 > Now let's do the registration page
+
+## 18. Client-side routing on a static host
+
+> > It needs a rewrite rule, which is one small config file.
+>
+> What can we do about this?
+
+(Explanatory. Covered why a hard refresh on a client-side route 404s on a static
+host, and the options: a rewrite serving index.html for non-file paths,
+HashRouter, dropping routing, or a server-rendering framework. No code written;
+the rewrite was deferred to the deployment step.)
+
+> Use the rewrite rule for this problem then move towards the deployement stage

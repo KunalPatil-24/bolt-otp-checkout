@@ -10,6 +10,17 @@ const app = express();
 const port = Number(process.env.PORT ?? 8080);
 
 /**
+ * The host terminates TLS at its own proxy and forwards the request to this
+ * process over plain HTTP. Without this, Express believes every request is
+ * insecure and reports the proxy's address as the client's.
+ *
+ * Nothing currently depends on either fact -- cookies are marked Secure
+ * regardless -- but anything that later rate limits by IP would silently see
+ * every request as coming from one address.
+ */
+app.set('trust proxy', 1);
+
+/**
  * Browser origins permitted to call this API, comma-separated.
  *
  * The frontend is served from a different origin than the API -- a different

@@ -1,0 +1,36 @@
+# Render blueprint for the API layer.
+#
+# Render reads this when the repository is imported as a Blueprint and
+# configures the service from it. DATABASE_URL and WEB_ORIGINS are marked
+# sync:false, so Render prompts for them in the dashboard rather than expecting
+# them here -- a connection string must never be committed.
+services:
+  - type: web
+    name: bolt-api
+    runtime: node
+    plan: free
+    rootDir: api
+
+    # Migrations run as part of the build, so a deploy that changes the schema
+    # applies it before the new code starts serving. The runner records what it
+    # has applied, so repeating this on every deploy is a no-op, and it exits
+    # non-zero on failure, which fails the deploy rather than starting a server
+    # against a half-migrated database.
+    #
+    # migrate:prod runs the compiled JavaScript rather than tsx, which is a
+    # devDependency and should not be relied on at deploy time.
+    buildCommand: npm ci && npm run build && npm run migrate:prod
+    startCommand: npm run start
+
+    # Render polls this to decide whether a deploy succeeded. It reports 503
+    # when the database is unreachable, so a service that cannot query anything
+    # is not counted as healthy.
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: WEB_ORIGINS
+        sync: false
