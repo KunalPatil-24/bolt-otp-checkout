@@ -1,6 +1,14 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { query, sql } from './db.js';
 import { generateSessionToken, hashSessionToken } from './crypto.js';
+
+/** A signed-in user, as the rest of the app sees them. */
+export type SessionUser = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+};
 
 export const SESSION_COOKIE = 'bolt_session';
 
@@ -64,4 +72,70 @@ export async function createSession(userId: string, res: Response): Promise<void
   `);
 
   res.cookie(SESSION_COOKIE, token, { ...cookieOptions(), maxAge: SESSION_TTL_MS });
+}
+
+/**
+ * Resolves the signed-in user for a request, or null if there is none.
+ *
+ * The browser sends a token; we hash it and look for that hash. The raw token
+ * is never stored, so this is the only way the lookup can work -- and it means
+ * a stolen database still yields nothing usable.
+ *
+ * Two details worth noting:
+ *
+ * - The expiry check is `expires_at > now()` in SQL rather than a comparison in
+ *   JavaScript, so it is evaluated against the database clock. Server and
+ *   database clocks drift, and an expired session must never be returned
+ *   because one machine is a few seconds behind.
+ * - The JOIN fetches the user in the same round trip. Looking up the session
+ *   and then the user would be two queries on every authenticated request.
+ */
+export async function getSessionUser(req: Request): Promise<SessionUser | null> {
+  const token = req.cookies?.[SESSION_COOKIE];
+  if (typeof token !== 'string' || token === '') return null;
+
+  const { rows } = await query<{
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+  }>(sql`
+    SELECT u.id, u.email, u.first_name, u.last_name
+      FROM sessions s
+      JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = ${hashSessionToken(token)}
+       AND s.expires_at > now()
+  `);
+
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    email: row.email,
+    firstName: row.first_name,
+    lastName: row.last_name,
+  };
+}
+
+/**
+ * Ends a session: deletes the row, then clears the cookie.
+ *
+ * Both halves matter, and the order of importance is the opposite of what it
+ * looks like. Clearing the cookie only tells this one browser to forget the
+ * token. Deleting the row is what actually revokes it -- without that, a token
+ * captured earlier would still work, and "log out" would be a suggestion rather
+ * than a guarantee. This is the concrete benefit of storing sessions as rows
+ * instead of using a self-contained token.
+ *
+ * clearCookie must be given the same attributes the cookie was set with, or the
+ * browser treats it as a different cookie and leaves the original in place --
+ * which is why those options are defined in one function above.
+ */
+export async function destroySession(req: Request, res: Response): Promise<void> {
+  const token = req.cookies?.[SESSION_COOKIE];
+  if (typeof token === 'string' && token !== '') {
+    await query(sql`DELETE FROM sessions WHERE token_hash = ${hashSessionToken(token)}`);
+  }
+  res.clearCookie(SESSION_COOKIE, cookieOptions());
 }

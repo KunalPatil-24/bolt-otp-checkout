@@ -7,7 +7,7 @@ import {
   hashLoginCode,
   verifyLoginCode,
 } from '../crypto.js';
-import { createSession } from '../session.js';
+import { createSession, destroySession, getSessionUser } from '../session.js';
 import { fieldErrors, loginSchema, recognizeSchema, registerSchema } from '../validation.js';
 
 export const authRouter = Router();
@@ -195,4 +195,37 @@ authRouter.post('/login', async (req, res) => {
 
   await createSession(user.id, res);
   res.json({ user: toPublicUser(user) });
+});
+
+/* ---------------------------------------------------------------------------
+ * GET /api/auth/me
+ *
+ * Reports who is signed in, or null.
+ *
+ * The frontend needs this because the session lives in an httpOnly cookie,
+ * which JavaScript cannot read by design. On a page load React knows nothing --
+ * its state was wiped by the refresh while the cookie survived -- so asking the
+ * server is the only way to find out.
+ *
+ * Returns 200 with null rather than 401 when nobody is signed in. Not being
+ * logged in is not an error here: this app supports guest checkout, so "nobody"
+ * is a legitimate and expected answer to "who is this?".
+ * ------------------------------------------------------------------------- */
+authRouter.get('/me', async (req, res) => {
+  const user = await getSessionUser(req);
+  res.json({ user });
+});
+
+/* ---------------------------------------------------------------------------
+ * POST /api/auth/logout
+ *
+ * Ends the session. Idempotent -- logging out when already logged out is a
+ * no-op, not an error, so a stale tab clicking sign-out gets a clean response.
+ *
+ * POST rather than GET because it changes state. A GET would be fetched by
+ * link prefetchers and crawlers, which would log people out by accident.
+ * ------------------------------------------------------------------------- */
+authRouter.post('/logout', async (req, res) => {
+  await destroySession(req, res);
+  res.json({ ok: true });
 });
