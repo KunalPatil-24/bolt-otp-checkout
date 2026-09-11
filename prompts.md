@@ -50,3 +50,13 @@ application, in order, recorded as the work happened.
 > incrementally, and I want to understand each part before moving on. Also,
 > before making significant implementation decisions, explain what you're
 > proposing and why.
+
+## 2. Database schema
+
+> Now let's create the schema. So from the assigmenment we can see that firstly
+> there is user information like first name, last name, email, and code. The
+> other enitity is the checkout form, where there is information about email,
+> phone number and shipping address..
+>
+> So at minimum we are looking at 2 entities: users and checkouts. We can add
+> add others as per our need but this are essential.
