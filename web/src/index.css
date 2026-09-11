@@ -144,6 +144,7 @@ body {
 
 .field-error { margin: 6px 0 0; font-size: 13px; color: var(--danger); }
 .field-hint { margin: 6px 0 0; font-size: 13px; color: var(--text-muted); }
+.field-hint-danger { color: var(--danger); }
 
 .form-error {
   margin: 0 0 16px;

@@ -5,6 +5,8 @@ type TextFieldProps = {
   onChange: (value: string) => void;
   error?: string;
   hint?: string;
+  /** Colours the hint. 'muted' is the default; 'danger' draws attention. */
+  hintTone?: 'muted' | 'danger';
   type?: string;
   placeholder?: string;
   autoComplete?: string;
@@ -27,6 +29,7 @@ export function TextField({
   onChange,
   error,
   hint,
+  hintTone = 'muted',
   type = 'text',
   placeholder,
   autoComplete,
@@ -57,7 +60,10 @@ export function TextField({
           {error}
         </p>
       ) : hint ? (
-        <p className="field-hint" id={`${name}-hint`}>
+        <p
+          className={`field-hint${hintTone === 'danger' ? ' field-hint-danger' : ''}`}
+          id={`${name}-hint`}
+        >
           {hint}
         </p>
       ) : null}

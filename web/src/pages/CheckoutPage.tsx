@@ -73,6 +73,10 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
   const normalizedEmail = debouncedEmail.trim().toLowerCase();
   const emailIsComplete = EMAIL_PATTERN.test(normalizedEmail);
 
+  /** True when the check has come back and this address has no account. */
+  const emailNotFound =
+    !user && unrecognizedEmail !== null && unrecognizedEmail === normalizedEmail;
+
   /* -------------------------------------------------------------------------
    * Background recognition.
    *
@@ -294,13 +298,16 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
                 ? 'Checking for an existing account…'
                 : user
                   ? 'Using your account email.'
-                  : unrecognizedEmail && unrecognizedEmail === normalizedEmail
+                  : emailNotFound
                     ? // Without this the check is invisible: a user who is not
                       // recognised sees nothing at all and cannot tell whether
                       // the feature ran, is still running, or is broken.
                       'No account found for this email — you can continue as a guest.'
                     : undefined
             }
+            // Only this message is coloured; 'Checking...' and 'Using your
+            // account email.' stay muted, since neither needs attention.
+            hintTone={emailNotFound ? 'danger' : 'muted'}
             onChange={(value) => update('email', value)}
           />
 
