@@ -10,15 +10,33 @@ const app = express();
 const port = Number(process.env.PORT ?? 8080);
 
 /**
- * The host terminates TLS at its own proxy and forwards the request to this
- * process over plain HTTP. Without this, Express believes every request is
- * insecure and reports the proxy's address as the client's.
+ * How many proxy hops in front of this process to trust.
  *
- * Nothing currently depends on either fact -- cookies are marked Secure
- * regardless -- but anything that later rate limits by IP would silently see
- * every request as coming from one address.
+ * The host terminates TLS at its own proxy and forwards over plain HTTP, so
+ * without this Express believes every request is insecure and reports the
+ * proxy's address as the client's.
+ *
+ * The number matters and 1 is wrong here. The observed chain in production is:
+ *
+ *     X-Forwarded-For: 103.94.57.240, 172.71.198.98, 10.26.235.3
+ *                      client         CDN edge       host-internal
+ *
+ * Express treats the N rightmost entries as trusted and takes the next one as
+ * the client. With N=1 that yields the host's own internal address, which is
+ * different on every request -- so a per-IP rate limit gave each call its own
+ * bucket and never triggered. With N=2 it yields the actual client.
+ *
+ * Counting from the right is also what makes this safe: a client that forges
+ * its own X-Forwarded-For header only prepends to the list, and the real
+ * address is still appended after it by the first proxy, so the count lands on
+ * the same entry either way.
+ *
+ * This is coupled to the host's topology. If requests start being rate limited
+ * as a group, or not at all, check that chain again before changing anything
+ * else.
  */
-app.set('trust proxy', 1);
+const TRUSTED_PROXY_HOPS = 2;
+app.set('trust proxy', TRUSTED_PROXY_HOPS);
 
 /**
  * Browser origins permitted to call this API, comma-separated.
