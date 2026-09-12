@@ -29,6 +29,15 @@
   --radius-sm: 10px;
   --shadow: 0 1px 2px rgba(4, 9, 26, 0.04), 0 12px 32px rgba(4, 9, 26, 0.07);
   --shadow-lg: 0 24px 60px rgba(4, 9, 26, 0.22);
+
+  --backdrop-from: #cfc6ff;
+  --backdrop-mid: #a8bcfa;
+  --backdrop-to: #dfe4ff;
+  --backdrop-opacity: 0.9;
+  /* Only a touch of blur. The shapes should read as shapes -- heavy blur turns
+     them into an undifferentiated wash and loses the bolt motif entirely. */
+  --backdrop-blur: 7px;
+
   color-scheme: light;
 }
 
@@ -49,6 +58,15 @@
   --success: #5fd39a;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
+
+  /* Deeper and much fainter on a dark ground: the same opacity that reads as a
+     soft wash on white reads as glare on near-black. */
+  --backdrop-from: #2f2f7a;
+  --backdrop-mid: #1b3f8f;
+  --backdrop-to: #10152f;
+  --backdrop-opacity: 0.55;
+  --backdrop-blur: 10px;
+
   color-scheme: dark;
 }
 
@@ -70,6 +88,25 @@ body {
 
 .app { min-height: 100vh; display: flex; flex-direction: column; }
 
+/* --- decorative backdrop -------------------------------------------------- */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;           /* behind everything, including the header */
+  overflow: hidden;
+  pointer-events: none;  /* never intercepts a click meant for the form */
+}
+.backdrop svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: var(--backdrop-opacity);
+  filter: blur(var(--backdrop-blur));
+  /* The blur softens the shapes' edges inward from the viewport edge, which
+     would otherwise show as a pale seam. Scaling up pushes that past the edge. */
+  transform: scale(1.06);
+}
+
 .app-header {
   display: flex;
   align-items: center;
@@ -77,7 +114,8 @@ body {
   gap: 16px;
   padding: 14px 24px;
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
   position: sticky;
   top: 0;
   z-index: 10;

@@ -3,6 +3,7 @@ import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { api, type User } from './lib/api';
 import { useTheme } from './lib/useTheme';
 import { ThemeToggle } from './components/ThemeToggle';
+import { Backdrop } from './components/Backdrop';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -37,6 +38,8 @@ export default function App() {
 
   return (
     <div className="app">
+      <Backdrop />
+
       <header className="app-header">
         <Link to="/" className="brand">
           Bolt<span className="brand-dot">.</span>
