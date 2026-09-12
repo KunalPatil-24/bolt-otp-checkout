@@ -30,9 +30,9 @@
   --shadow: 0 1px 2px rgba(4, 9, 26, 0.04), 0 12px 32px rgba(4, 9, 26, 0.07);
   --shadow-lg: 0 24px 60px rgba(4, 9, 26, 0.22);
 
-  --btn-dark-bg: #04091a;
-  --btn-dark-text: #ffffff;
-  --btn-dark-hover: #1b2338;
+  --btn-primary-bg: #04091a;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover: #1b2338;
 
   --backdrop-from: #cfc6ff;
   --backdrop-mid: #a8bcfa;
@@ -66,11 +66,12 @@
   /* Deeper and much fainter on a dark ground: the same opacity that reads as a
      soft wash on white reads as glare on near-black. */
   /* Inverted on a dark ground. A near-black button on a near-black page is
-     invisible, so the dark button becomes the light one and keeps its job of
-     being the heaviest thing on the screen. */
-  --btn-dark-bg: #f2f4fb;
-  --btn-dark-text: #04091a;
-  --btn-dark-hover: #ffffff;
+     invisible, so it becomes the light one and keeps its job of being the
+     heaviest thing on the screen. The point of the treatment is weight, not the
+     literal colour. */
+  --btn-primary-bg: #f2f4fb;
+  --btn-primary-text: #04091a;
+  --btn-primary-hover: #ffffff;
 
   --backdrop-from: #2f2f7a;
   --backdrop-mid: #1b3f8f;
@@ -265,16 +266,14 @@ body {
 }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Near-black, matching Bolt's own primary action. The accent blue is reserved
+   for links and focus rings rather than fills, which is how they use it. */
 .btn-primary {
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   box-shadow: 0 1px 2px rgba(4, 9, 26, 0.12);
 }
-.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
-/* The heaviest action on a page, matching Bolt's own near-black primary. */
-.btn-dark { background: var(--btn-dark-bg); color: var(--btn-dark-text); }
-.btn-dark:hover:not(:disabled) { background: var(--btn-dark-hover); }
-
+.btn-primary:hover:not(:disabled) { background: var(--btn-primary-hover); }
 .btn-ghost { background: transparent; color: var(--text-muted); border-color: var(--border); }
 .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--text-muted); }
 .btn-block { width: 100%; margin-top: 12px; padding: 14px 18px; font-size: 15px; }
