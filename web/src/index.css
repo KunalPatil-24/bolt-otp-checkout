@@ -34,13 +34,16 @@
   --btn-primary-text: #ffffff;
   --btn-primary-hover: #1b2338;
 
-  --backdrop-from: #cfc6ff;
-  --backdrop-mid: #a8bcfa;
-  --backdrop-to: #dfe4ff;
-  --backdrop-opacity: 0.9;
-  /* Only a touch of blur. The shapes should read as shapes -- heavy blur turns
-     them into an undifferentiated wash and loses the bolt motif entirely. */
-  --backdrop-blur: 7px;
+  /* Colour fields for the mesh. Kept inside Bolt's range -- the brand blue, a
+     violet and a cyan either side of it -- so the page still reads as theirs.
+     Alpha is low because this sits behind text: a saturated ground would fight
+     the muted body colour for legibility. */
+  --mesh-1: rgba(0, 108, 255, 0.46);
+  --mesh-2: rgba(129, 108, 255, 0.50);
+  --mesh-3: rgba(64, 184, 255, 0.40);
+  --mesh-4: rgba(167, 129, 250, 0.36);
+  --mesh-5: rgba(0, 108, 255, 0.24);
+  --backdrop-opacity: 1;
 
   color-scheme: light;
 }
@@ -105,18 +108,27 @@ body {
   position: fixed;
   inset: 0;
   z-index: -1;           /* behind everything, including the header */
-  overflow: hidden;
   pointer-events: none;  /* never intercepts a click meant for the form */
-}
-.backdrop svg {
-  width: 100%;
-  height: 100%;
-  display: block;
   opacity: var(--backdrop-opacity);
-  filter: blur(var(--backdrop-blur));
-  /* The blur softens the shapes' edges inward from the viewport edge, which
-     would otherwise show as a pale seam. Scaling up pushes that past the edge. */
-  transform: scale(1.06);
+
+  /* Five overlapping fields at different positions and sizes. Where they meet
+     they blend, which is what produces the soft organic transitions a single
+     linear gradient cannot. Percentages rather than pixels so the composition
+     holds at any viewport. */
+  background-image:
+    radial-gradient(60% 55% at 18% 22%, var(--mesh-1) 0%, transparent 70%),
+    radial-gradient(55% 50% at 82% 14%, var(--mesh-3) 0%, transparent 68%),
+    radial-gradient(65% 60% at 88% 72%, var(--mesh-2) 0%, transparent 70%),
+    radial-gradient(58% 55% at 12% 82%, var(--mesh-4) 0%, transparent 68%),
+    radial-gradient(70% 60% at 50% 50%, var(--mesh-5) 0%, transparent 72%);
+  background-repeat: no-repeat;
+
+  /* Softens the seams where the fields meet. Small, because the gradients are
+     already diffuse -- this is smoothing, not the effect itself. */
+  filter: blur(24px);
+  /* Pushes the blur's soft edge past the viewport, which would otherwise show
+     as a pale seam along each side. */
+  transform: scale(1.1);
 }
 
 .app-header {
