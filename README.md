@@ -74,6 +74,7 @@ web/src/
 | `POST` | `/api/auth/logout`    | End the session                                   |
 | `POST` | `/api/orders`         | Record a checkout submission                      |
 | `GET`  | `/api/orders`         | The signed-in user's own orders                   |
+| `GET`  | `/api/orders/latest-address` | The address this user last shipped to      |
 
 Every failure returns the same shape: `{ error, message }`, plus a per-field
 `fields` map on validation errors so a form can highlight every bad input at
@@ -113,6 +114,12 @@ return the same status, the same message, and take the same time.
 
 **Order history is filtered by the session**, never by an id from the request, so
 changing a value in a URL cannot surface somebody else's orders.
+
+**A recognised returning customer's address is filled in for them**, which is
+the point of recognising anyone: checkout collapses to a single click. Only
+empty fields are filled, never ones already typed in, and there is always a way
+to enter a different address. Guest orders are never offered back, even one
+placed with the same email -- a guest order is not proof of owning the account.
 
 ### Known trade-offs
 

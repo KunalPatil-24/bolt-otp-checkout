@@ -121,3 +121,48 @@ describe('GET /api/orders', () => {
     );
   });
 });
+
+describe('GET /api/orders/latest-address', () => {
+  test('requires a session', async () => {
+    await api().get('/api/orders/latest-address').expect(401);
+  });
+
+  test('returns null when the user has never ordered', async () => {
+    const signedIn = await signedInAgent('new@example.com');
+    const response = await signedIn.get('/api/orders/latest-address').expect(200);
+    assert.equal(response.body.address, null);
+  });
+
+  test('returns the most recent address, not the first', async () => {
+    const signedIn = await signedInAgent('alice@example.com');
+    await signedIn.post('/api/orders').send({ ...validOrder, city: 'Pune' }).expect(201);
+    await signedIn.post('/api/orders').send({ ...validOrder, city: 'Mumbai' }).expect(201);
+
+    const response = await signedIn.get('/api/orders/latest-address').expect(200);
+    assert.equal(response.body.address.city, 'Mumbai');
+    assert.equal(response.body.address.addressLine1, validOrder.addressLine1);
+  });
+
+  test('never returns another user\'s address', async () => {
+    const alice = await signedInAgent('alice@example.com');
+    const bob = await signedInAgent('bob@example.com');
+    await bob.post('/api/orders').send({ ...validOrder, city: 'Delhi' }).expect(201);
+
+    // Alice has ordered nothing, so she must see nothing -- not Bob's address.
+    const response = await alice.get('/api/orders/latest-address').expect(200);
+    assert.equal(response.body.address, null);
+  });
+
+  test('ignores guest orders placed with the same email', async () => {
+    // A guest order has no user_id, so it belongs to nobody and must not be
+    // offered back to an account that happens to share the email.
+    const signedIn = await signedInAgent('alice@example.com');
+    await api()
+      .post('/api/orders')
+      .send({ ...validOrder, email: 'alice@example.com', city: 'GuestCity' })
+      .expect(201);
+
+    const response = await signedIn.get('/api/orders/latest-address').expect(200);
+    assert.equal(response.body.address, null);
+  });
+});

@@ -29,6 +29,17 @@ export type Order = {
   createdAt: string;
 };
 
+/** The shape the checkout form can prefill from. Deliberately no email. */
+export type SavedAddress = {
+  phone: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+};
+
 export type User = {
   id: string;
   email: string;
@@ -115,6 +126,10 @@ export const api = {
   me: () => request<{ user: User | null }>('/api/auth/me'),
 
   logout: () => request<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
+
+  /** The address this user last shipped to, or null. 401 if not signed in. */
+  latestAddress: () =>
+    request<{ address: SavedAddress | null }>('/api/orders/latest-address'),
 
   /** The signed-in user's own orders. 401 if there is no session. */
   myOrders: () =>

@@ -252,3 +252,8 @@ rest of the page, or the native dialog element with showModal.)
 > This is not necessary now.
 
 (The focus trap was left unimplemented. It remains recorded as a known gap.)
+
+## 22. Further features
+
+> What other features can we augment the app with? Not adding unnecessary
+> complexity but adding great features.

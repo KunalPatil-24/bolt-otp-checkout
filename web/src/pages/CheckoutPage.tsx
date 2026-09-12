@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { ApiError, api, type User } from '../lib/api';
+import { ApiError, api, type SavedAddress, type User } from '../lib/api';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
 import { LoginModal } from '../components/LoginModal';
 import { TextField } from '../components/TextField';
@@ -42,6 +42,11 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
   const [modalEmail, setModalEmail] = useState<string | null>(null);
   const [recognizedEmail, setRecognizedEmail] = useState<string | null>(null);
   const [recognizedName, setRecognizedName] = useState<string | null>(null);
+  const [savedAddress, setSavedAddress] = useState<SavedAddress | null>(null);
+  const [usingSavedAddress, setUsingSavedAddress] = useState(false);
+
+  /** Applied once per sign-in, so re-renders cannot refill a field the user cleared. */
+  const savedAddressApplied = useRef(false);
   const [unrecognizedEmail, setUnrecognizedEmail] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<{ orderId: string; linked: boolean } | null>(
@@ -214,6 +219,77 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
     );
   }, [user]);
 
+  /**
+   * Fetch the address this user last shipped to.
+   *
+   * This is the whole point of recognising someone: a returning customer should
+   * not retype an address we already have. It runs on sign-in and on a session
+   * restored from the cookie.
+   */
+  useEffect(() => {
+    if (!user) {
+      setSavedAddress(null);
+      setUsingSavedAddress(false);
+      savedAddressApplied.current = false;
+      return;
+    }
+
+    let cancelled = false;
+    api
+      .latestAddress()
+      .then((result) => {
+        if (!cancelled) setSavedAddress(result.address);
+      })
+      .catch(() => {
+        // A convenience. If it fails the form is simply empty, which is the
+        // state the user would have been in anyway.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  /**
+   * Fill the blanks from the saved address.
+   *
+   * Only empty fields are filled, never ones the user has already typed in --
+   * having a form overwrite what someone just entered is far worse than making
+   * them type it. Guarded by a ref so it happens once per sign-in rather than
+   * on every render, which would undo a field they deliberately cleared.
+   */
+  useEffect(() => {
+    if (!savedAddress || savedAddressApplied.current) return;
+    savedAddressApplied.current = true;
+
+    setForm((previous) => ({
+      ...previous,
+      phone: previous.phone || savedAddress.phone,
+      addressLine1: previous.addressLine1 || savedAddress.addressLine1,
+      addressLine2: previous.addressLine2 || (savedAddress.addressLine2 ?? ''),
+      city: previous.city || savedAddress.city,
+      state: previous.state || savedAddress.state,
+      postalCode: previous.postalCode || savedAddress.postalCode,
+      country: previous.country || savedAddress.country,
+    }));
+    setUsingSavedAddress(true);
+  }, [savedAddress]);
+
+  /** Empties the shipping fields so a different address can be entered. */
+  function useDifferentAddress() {
+    setUsingSavedAddress(false);
+    setForm((previous) => ({
+      ...previous,
+      phone: '',
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: '',
+    }));
+  }
+
   function update(field: keyof FormValues, value: string) {
     if (field === 'email') setUnrecognizedEmail(null);
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -245,6 +321,9 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
     setRecognizedEmail(null);
     setRecognizedName(null);
     setUnrecognizedEmail(null);
+    setSavedAddress(null);
+    setUsingSavedAddress(false);
+    savedAddressApplied.current = false;
     // Let the same address be recognised again after signing out.
     alreadyChecked.current.clear();
     dismissed.current.clear();
@@ -386,7 +465,18 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
             onChange={(value) => update('phone', value)}
           />
 
-          <h2 className="section-heading">Shipping address</h2>
+          <div className="section-head">
+            <h2 className="section-heading">Shipping address</h2>
+            {usingSavedAddress && (
+              <button type="button" className="link-button" onClick={useDifferentAddress}>
+                Use a different address
+              </button>
+            )}
+          </div>
+
+          {usingSavedAddress && (
+            <p className="saved-note">Filled in from the last address you used.</p>
+          )}
 
           <TextField
             label="Street address"

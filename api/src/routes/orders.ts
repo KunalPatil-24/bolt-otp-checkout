@@ -114,3 +114,52 @@ ordersRouter.get('/', async (req, res) => {
 
   res.json({ orders: rows.map(toPublicOrder) });
 });
+
+/* ---------------------------------------------------------------------------
+ * GET /api/orders/latest-address
+ *
+ * The address this user last shipped to, or null.
+ *
+ * Its own endpoint rather than reading the first item from the order history,
+ * because the checkout form wants one address and that would fetch every order
+ * the user has ever placed to get it. LIMIT 1 also lets the database stop at
+ * the first row instead of sorting the whole set.
+ *
+ * Only columns the form can use are selected: the email is not among them,
+ * because the account's address should not quietly change the contact address
+ * on a new order.
+ *
+ * Guest orders cannot appear here. They carry no user_id, so they match no one
+ * -- even one placed with this user's email address, which is deliberate: a
+ * guest order is not proof that whoever placed it owns the account.
+ * ------------------------------------------------------------------------- */
+ordersRouter.get('/latest-address', async (req, res) => {
+  const user = await getSessionUser(req);
+  if (!user) {
+    throw ApiError.unauthorized('not_signed_in', 'Sign in to use a saved address.');
+  }
+
+  const { rows } = await query<Omit<OrderRow, 'id' | 'email' | 'created_at'>>(sql`
+    SELECT phone, address_line1, address_line2,
+           city, state, postal_code, country
+      FROM orders
+     WHERE user_id = ${user.id}
+     ORDER BY created_at DESC
+     LIMIT 1
+  `);
+
+  const row = rows[0];
+  res.json({
+    address: row
+      ? {
+          phone: row.phone,
+          addressLine1: row.address_line1,
+          addressLine2: row.address_line2,
+          city: row.city,
+          state: row.state,
+          postalCode: row.postal_code,
+          country: row.country,
+        }
+      : null,
+  });
+});
