@@ -22,9 +22,10 @@ const port = Number(process.env.PORT ?? 8080);
  *                      client         CDN edge       host-internal
  *
  * Express treats the N rightmost entries as trusted and takes the next one as
- * the client. With N=1 that yields the host's own internal address, which is
- * different on every request -- so a per-IP rate limit gave each call its own
- * bucket and never triggered. With N=2 it yields the actual client.
+ * the client, so N is the number of entries to skip. N=1 yields the host's own
+ * internal address and N=2 the CDN edge -- both of which vary between requests,
+ * so a per-IP rate limit gave each call its own bucket and never triggered.
+ * Three hops is what reaches the client.
  *
  * Counting from the right is also what makes this safe: a client that forges
  * its own X-Forwarded-For header only prepends to the list, and the real
@@ -35,7 +36,7 @@ const port = Number(process.env.PORT ?? 8080);
  * as a group, or not at all, check that chain again before changing anything
  * else.
  */
-const TRUSTED_PROXY_HOPS = 2;
+const TRUSTED_PROXY_HOPS = 3;
 app.set('trust proxy', TRUSTED_PROXY_HOPS);
 
 /**
@@ -99,6 +100,8 @@ app.get('/api/_whoami', (req, res) => {
     reqIp: req.ip,
     reqIps: req.ips,
     xForwardedFor: req.headers['x-forwarded-for'] ?? null,
+    cfConnectingIp: req.headers['cf-connecting-ip'] ?? null,
+    trueClientIp: req.headers['true-client-ip'] ?? null,
     trustProxySetting: app.get('trust proxy'),
   });
 });
