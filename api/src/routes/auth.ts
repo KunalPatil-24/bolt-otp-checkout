@@ -8,6 +8,7 @@ import {
   verifyLoginCode,
 } from '../crypto.js';
 import { createSession, destroySession, getSessionUser } from '../session.js';
+import { isRateLimited } from '../rateLimit.js';
 import { fieldErrors, loginSchema, recognizeSchema, registerSchema } from '../validation.js';
 
 export const authRouter = Router();
@@ -75,27 +76,42 @@ authRouter.post('/register', async (req, res) => {
 /* ---------------------------------------------------------------------------
  * POST /api/auth/recognize
  *
- * Answers one question for the checkout form: is this email registered?
+ * Answers one question for the checkout form: is this email registered, and if
+ * so, whose is it?
  *
  * POST rather than GET, despite this being a pure read. A GET would put the
  * email address in the URL, and URLs travel further than people expect: server
  * access logs kept for months, browser history, the Referer header sent to any
  * third-party script on the page, proxies, analytics. A request body appears in
- * none of those. The cost is a semantically inaccurate verb and a cached CORS
- * preflight, both of which are cheaper than permanently logging real people's
- * email addresses.
+ * none of those.
  *
- * The response is a bare boolean and deliberately carries no name. The caller
- * has typed an email and proved nothing, so returning a name would let anyone
- * with a list of addresses turn it into a list of names matched to addresses --
- * exactly what makes a phishing mail convincing. The name is revealed only
- * after the code is verified.
+ * The response includes the user's first name, so the login prompt can greet
+ * them by it. That is a deliberate trade and worth stating plainly: the caller
+ * has typed an email and proved nothing, so this hands a name to anyone willing
+ * to guess addresses. It is the same trade most large retailers make, on the
+ * grounds that recognising a returning customer by name is the point of the
+ * feature -- and the rate limit below is what stops it being harvested in bulk.
  *
- * This endpoint does inherently reveal whether an address is registered. That
- * cannot be avoided: it is the feature the flow is built on. What it can do is
- * reveal nothing further.
+ * Only the first name is returned, never the surname or anything else.
  * ------------------------------------------------------------------------- */
+
+/**
+ * At most this many checks per IP per minute.
+ *
+ * Far above anything a human typing one address can reach, far below a useful
+ * scraping rate. See rateLimit.ts for why the IP is the only thing available to
+ * key on here, and why that is a speed bump rather than a guarantee.
+ */
+const RECOGNIZE_MAX_PER_MINUTE = 30;
+
 authRouter.post('/recognize', async (req, res) => {
+  // Checked before the query, so a caller past the limit costs nothing.
+  // req.ip is the real client address rather than the proxy's because
+  // `trust proxy` is set in index.ts.
+  if (isRateLimited(`recognize:${req.ip}`, RECOGNIZE_MAX_PER_MINUTE, 60_000)) {
+    throw ApiError.tooManyRequests('Too many requests. Please slow down.');
+  }
+
   const parsed = recognizeSchema.safeParse(req.body);
 
   // A malformed address is answered "no" rather than rejected as a validation
@@ -107,22 +123,25 @@ authRouter.post('/recognize', async (req, res) => {
     return;
   }
 
-  // SELECT 1, not SELECT *: we need to know whether a row exists, not what is
-  // in it. Fetching the row would pull the stored code hash into application
-  // memory for no reason.
-  const { rows } = await query(sql`
-    SELECT 1 FROM users WHERE LOWER(email) = ${parsed.data.email}
+  const { rows } = await query<{ first_name: string }>(sql`
+    SELECT first_name FROM users WHERE LOWER(email) = ${parsed.data.email}
   `);
 
-  res.json({ recognized: rows.length > 0 });
+  const found = rows[0];
+  res.json(found ? { recognized: true, firstName: found.first_name } : { recognized: false });
 });
 
 /**
- * Rate limit: at most this many failed attempts per email address per window.
+ * Login rate limit: at most this many failed attempts per email per window.
  *
  * A 6-digit code is 10^6 possibilities; at 100 requests a second an attacker
  * expects to find one in under two hours. Five attempts per quarter hour turns
  * that into roughly 28 years.
+ *
+ * Keyed on the email and stored in Postgres, unlike the recognise limiter
+ * above: guessing a code means hitting one address repeatedly, so counting per
+ * address catches it exactly -- and being a real security control, it has to
+ * survive a restart.
  */
 const MAX_FAILURES = 5;
 const WINDOW_MINUTES = 15;

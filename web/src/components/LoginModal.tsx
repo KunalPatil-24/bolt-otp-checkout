@@ -3,6 +3,8 @@ import { ApiError, api, type User } from '../lib/api';
 
 type LoginModalProps = {
   email: string;
+  /** Null when the API did not return one; the heading falls back gracefully. */
+  firstName: string | null;
   onSuccess: (user: User) => void;
   onSkip: () => void;
 };
@@ -15,7 +17,7 @@ type LoginModalProps = {
  * beyond that a checkout flow must never trap someone who only wants to buy
  * something as a guest.
  */
-export function LoginModal({ email, onSuccess, onSkip }: LoginModalProps) {
+export function LoginModal({ email, firstName, onSuccess, onSkip }: LoginModalProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -73,7 +75,7 @@ export function LoginModal({ email, onSuccess, onSkip }: LoginModalProps) {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <h2 className="modal-title" id="login-modal-title">
-          Welcome back
+          {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
         </h2>
         <p className="modal-subtitle">
           {/* The confirmation is the part worth colouring: it tells the user the

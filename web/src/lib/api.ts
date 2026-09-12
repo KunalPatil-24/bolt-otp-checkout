@@ -87,7 +87,7 @@ export const api = {
    * request for an email they have already edited away from must be cancellable.
    */
   recognize: (email: string, signal?: AbortSignal) =>
-    request<{ recognized: boolean }>('/api/auth/recognize', {
+    request<{ recognized: boolean; firstName?: string }>('/api/auth/recognize', {
       method: 'POST',
       body: JSON.stringify({ email }),
       signal,

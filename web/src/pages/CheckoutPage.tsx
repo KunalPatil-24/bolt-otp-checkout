@@ -41,6 +41,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
   const [checking, setChecking] = useState(false);
   const [modalEmail, setModalEmail] = useState<string | null>(null);
   const [recognizedEmail, setRecognizedEmail] = useState<string | null>(null);
+  const [recognizedName, setRecognizedName] = useState<string | null>(null);
   const [unrecognizedEmail, setUnrecognizedEmail] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmation, setConfirmation] = useState<{ orderId: string; linked: boolean } | null>(
@@ -116,6 +117,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
           alreadyChecked.current.add(normalizedEmail);
           setUnrecognizedEmail(null);
           setRecognizedEmail(normalizedEmail);
+          setRecognizedName(result.firstName ?? null);
           setModalEmail(normalizedEmail);
         } else {
           // Recorded so the field can say so. Not cached -- see above.
@@ -184,6 +186,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
     await api.logout().catch(() => undefined);
     onUserChange(null);
     setRecognizedEmail(null);
+    setRecognizedName(null);
     setUnrecognizedEmail(null);
     // Let the same address be recognised again after signing out.
     alreadyChecked.current.clear();
@@ -260,7 +263,11 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
           // The fallback that makes silent failure acceptable: a way into an
           // account that does not depend on the modal having appeared.
           <div className="banner">
-            <span className="muted">This email is already registered.</span>
+            <span className="muted">
+              {recognizedName
+                ? `Welcome back, ${recognizedName}.`
+                : 'This email is already registered.'}
+            </span>
             <button
               type="button"
               className="btn btn-ghost btn-small"
@@ -394,7 +401,12 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
       </div>
 
       {modalEmail && (
-        <LoginModal email={modalEmail} onSuccess={handleLoginSuccess} onSkip={handleSkip} />
+        <LoginModal
+          email={modalEmail}
+          firstName={recognizedName}
+          onSuccess={handleLoginSuccess}
+          onSkip={handleSkip}
+        />
       )}
     </>
   );
