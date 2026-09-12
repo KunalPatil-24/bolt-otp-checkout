@@ -75,6 +75,16 @@ app.get('/api/health', async (_req, res) => {
   });
 });
 
+// TEMPORARY diagnostic: what does this process actually see as the client?
+app.get('/api/_whoami', (req, res) => {
+  res.json({
+    reqIp: req.ip,
+    reqIps: req.ips,
+    xForwardedFor: req.headers['x-forwarded-for'] ?? null,
+    trustProxySetting: app.get('trust proxy'),
+  });
+});
+
 app.use('/api/auth', authRouter);
 app.use('/api/orders', ordersRouter);
 
