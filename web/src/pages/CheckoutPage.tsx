@@ -44,6 +44,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
   const [recognizedName, setRecognizedName] = useState<string | null>(null);
   const [savedAddress, setSavedAddress] = useState<SavedAddress | null>(null);
   const [usingSavedAddress, setUsingSavedAddress] = useState(false);
+  const [showAddressLine2, setShowAddressLine2] = useState(false);
 
   /** Applied once per sign-in, so re-renders cannot refill a field the user cleared. */
   const savedAddressApplied = useRef(false);
@@ -272,12 +273,14 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
       postalCode: previous.postalCode || savedAddress.postalCode,
       country: previous.country || savedAddress.country,
     }));
+    if (savedAddress.addressLine2) setShowAddressLine2(true);
     setUsingSavedAddress(true);
   }, [savedAddress]);
 
   /** Empties the shipping fields so a different address can be entered. */
   function useDifferentAddress() {
     setUsingSavedAddress(false);
+    setShowAddressLine2(false);
     setForm((previous) => ({
       ...previous,
       phone: '',
@@ -488,14 +491,32 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
             onChange={(value) => update('addressLine1', value)}
           />
 
-          <TextField
-            label="Apartment, suite, etc. (optional)"
-            name="addressLine2"
-            autoComplete="address-line2"
-            value={form.addressLine2}
-            error={errors.addressLine2}
-            onChange={(value) => update('addressLine2', value)}
-          />
+          {/* Optional, and most people do not need it. Hiding it by default
+              makes the form look as short as it actually is; a validation error
+              on it would force it open, though it cannot currently produce one. */}
+          {showAddressLine2 || errors.addressLine2 ? (
+            <TextField
+              label="Apartment, suite, etc. (optional)"
+              name="addressLine2"
+              autoComplete="address-line2"
+              value={form.addressLine2}
+              error={errors.addressLine2}
+              onChange={(value) => update('addressLine2', value)}
+            />
+          ) : (
+            <button
+              type="button"
+              className="link-button add-line-button"
+              onClick={() => {
+                setShowAddressLine2(true);
+                // Move focus into the field that just appeared, so a keyboard
+                // user is not left on a button that no longer exists.
+                requestAnimationFrame(() => document.getElementById('addressLine2')?.focus());
+              }}
+            >
+              + Add apartment, suite, etc.
+            </button>
+          )}
 
           <div className="field-row">
             <TextField
@@ -541,9 +562,15 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
             </p>
           )}
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
-            {submitting ? 'Submitting…' : 'Place order'}
-          </button>
+          {/* Pinned to the bottom of the viewport while the form is taller than
+              it. A returning customer arrives with every field already filled;
+              making them scroll past eight of them to find the button would
+              undo most of the point. */}
+          <div className="checkout-actions">
+            <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
+              {submitting ? 'Submitting…' : 'Place order'}
+            </button>
+          </div>
         </form>
       </div>
 

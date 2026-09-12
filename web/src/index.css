@@ -27,6 +27,9 @@
   --success: #0f7a4d;
   --radius: 14px;
   --radius-sm: 10px;
+  /* A variable so the sticky action bar can bleed exactly to the card's edges
+     without repeating the number in two places that could drift apart. */
+  --card-padding: 32px;
   --shadow: 0 1px 2px rgba(4, 9, 26, 0.04), 0 12px 32px rgba(4, 9, 26, 0.07);
   --shadow-lg: 0 24px 60px rgba(4, 9, 26, 0.22);
 
@@ -186,7 +189,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 32px;
+  padding: var(--card-padding);
 }
 .card-loading { text-align: center; color: var(--text-muted); }
 .card-title { margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -0.03em; }
@@ -399,7 +402,7 @@ a { color: var(--accent); }
 
 @media (max-width: 520px) {
   .field-row { flex-direction: column; gap: 0; }
-  .card { padding: 20px; }
+  :root { --card-padding: 20px; }
 }
 
 /* --- order history ------------------------------------------------------- */
@@ -455,3 +458,20 @@ a { color: var(--accent); }
 /* --- code recovery -------------------------------------------------------- */
 .modal-footnote { margin-top: 14px; text-align: center; }
 .modal-sent { font-size: 13px; color: var(--success); }
+
+/* --- sticky checkout action ---------------------------------------------- */
+.checkout-actions {
+  position: sticky;
+  bottom: 0;
+  /* Negative margins pull it out to the card's edges so the bar spans the full
+     width; the padding then puts the button back where it was. */
+  margin: 12px calc(var(--card-padding) * -1) calc(var(--card-padding) * -1);
+  padding: 14px var(--card-padding);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.checkout-actions .btn-block { margin-top: 0; }
+
+.add-line-button { display: inline-block; margin-bottom: 16px; }
