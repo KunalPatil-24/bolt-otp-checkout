@@ -238,3 +238,17 @@ limit is a speed bump rather than a correctness guarantee. No code written.)
 
 > Hey, we have done all the fundamental requirements given in the assignment?
 > Now can we improve the project even better that it impresses the judge.
+
+## 21. Modal focus trap
+
+> What is the modal focus trap?
+
+(Explanatory. Covered what keyboard focus is, that the checkout form behind the
+open dialog is still in the tab order so Tab walks out of the modal into
+controls the user cannot see, why aria-modal does not prevent that, and the
+three ways to fix it: a manual wrap-around handler, the inert attribute on the
+rest of the page, or the native dialog element with showModal.)
+
+> This is not necessary now.
+
+(The focus trap was left unimplemented. It remains recorded as a known gap.)
