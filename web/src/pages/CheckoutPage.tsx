@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom';
 import { ApiError, api, type SavedAddress, type User } from '../lib/api';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
+import { validateField } from '../lib/validateField';
 import { LoginModal } from '../components/LoginModal';
 import { TextField } from '../components/TextField';
 
@@ -29,6 +30,15 @@ const EMPTY_FORM = {
 };
 
 type FormValues = typeof EMPTY_FORM;
+
+/**
+ * The fields in the order they appear on screen.
+ *
+ * Taken from EMPTY_FORM rather than written out again: a second list would be
+ * one more thing to keep in step with the markup, and it would fail silently by
+ * focusing the wrong field.
+ */
+const FIELD_ORDER = Object.keys(EMPTY_FORM) as (keyof FormValues)[];
 
 type CheckoutPageProps = {
   user: User | null;
@@ -305,6 +315,30 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
     }));
   }
 
+  /**
+   * Checks one field when it loses focus.
+   *
+   * On blur rather than on every keystroke: complaining that an email is
+   * invalid while someone is still halfway through typing it is noise, and
+   * people quickly learn to ignore a message that is wrong most of the time.
+   *
+   * Never overwrites a message already on the field -- the server's is more
+   * authoritative than ours.
+   */
+  function handleBlur(field: keyof FormValues) {
+    const problem = validateField(field, form[field]);
+    setErrors((previous) => {
+      if (!problem) {
+        if (!previous[field]) return previous;
+        const next = { ...previous };
+        delete next[field];
+        return next;
+      }
+      if (previous[field]) return previous;
+      return { ...previous, [field]: problem };
+    });
+  }
+
   function update(field: keyof FormValues, value: string) {
     if (field === 'email') setUnrecognizedEmail(null);
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -344,6 +378,35 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
     dismissed.current.clear();
   }
 
+  /**
+   * Moves focus to the first field with a problem.
+   *
+   * Without this a failed submit changes the page silently: a keyboard user has
+   * to hunt for what went wrong, and a screen reader announces nothing at all.
+   * Focusing the field makes assistive technology read its label, its invalid
+   * state, and the message describing it -- which is why this is enough on its
+   * own, and an announcement elsewhere would only repeat it.
+   *
+   * It matters more now that the submit button is pinned to the bottom: the
+   * form can be submitted from a scroll position where the first problem is
+   * off-screen above.
+   */
+  function focusFirstError(found: Record<string, string>) {
+    const firstBadField = FIELD_ORDER.find((field) => found[field]);
+    if (!firstBadField) return;
+
+    // The optional line is collapsed by default; focusing a hidden field would
+    // do nothing at all.
+    if (firstBadField === 'addressLine2') setShowAddressLine2(true);
+
+    // After paint, so the field exists and the error text has been rendered.
+    requestAnimationFrame(() => {
+      const element = document.getElementById(firstBadField);
+      element?.focus();
+      element?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (submitting) return;
@@ -357,9 +420,10 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
       if (caught instanceof ApiError) {
         // The server is the authority on validity, and it returns errors keyed
         // by field name, which drop straight into the inputs.
-        setErrors(
-          Object.keys(caught.fields).length > 0 ? caught.fields : { form: caught.message },
-        );
+        const found =
+          Object.keys(caught.fields).length > 0 ? caught.fields : { form: caught.message };
+        setErrors(found);
+        focusFirstError(found);
       } else {
         setErrors({ form: 'Something went wrong. Please try again.' });
       }
@@ -472,6 +536,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
             // Only this message is coloured; 'Checking...' and 'Using your
             // account email.' stay muted, since neither needs attention.
             hintTone={emailNotFound ? 'danger' : 'muted'}
+            onBlur={() => handleBlur('email')}
             onChange={(value) => update('email', value)}
           />
 
@@ -483,6 +548,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
             placeholder="+91 98765 43210"
             value={form.phone}
             error={errors.phone}
+            onBlur={() => handleBlur('phone')}
             onChange={(value) => update('phone', value)}
           />
 
@@ -506,6 +572,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
             placeholder="12 MG Road"
             value={form.addressLine1}
             error={errors.addressLine1}
+            onBlur={() => handleBlur('addressLine1')}
             onChange={(value) => update('addressLine1', value)}
           />
 
@@ -543,7 +610,8 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
               autoComplete="address-level2"
               value={form.city}
               error={errors.city}
-              onChange={(value) => update('city', value)}
+              onBlur={() => handleBlur('city')}
+            onChange={(value) => update('city', value)}
             />
             <TextField
               label="State / Province"
@@ -551,7 +619,8 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
               autoComplete="address-level1"
               value={form.state}
               error={errors.state}
-              onChange={(value) => update('state', value)}
+              onBlur={() => handleBlur('state')}
+            onChange={(value) => update('state', value)}
             />
           </div>
 
@@ -562,7 +631,8 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
               autoComplete="postal-code"
               value={form.postalCode}
               error={errors.postalCode}
-              onChange={(value) => update('postalCode', value)}
+              onBlur={() => handleBlur('postalCode')}
+            onChange={(value) => update('postalCode', value)}
             />
             <TextField
               label="Country"
@@ -570,7 +640,8 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
               autoComplete="country-name"
               value={form.country}
               error={errors.country}
-              onChange={(value) => update('country', value)}
+              onBlur={() => handleBlur('country')}
+            onChange={(value) => update('country', value)}
             />
           </div>
 

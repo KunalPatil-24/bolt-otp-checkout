@@ -3,6 +3,8 @@ type TextFieldProps = {
   name: string;
   value: string;
   onChange: (value: string) => void;
+  /** Called when the field loses focus, for validating what was just typed. */
+  onBlur?: () => void;
   error?: string;
   hint?: string;
   /** Colours the hint. 'muted' is the default; 'danger' draws attention. */
@@ -27,6 +29,7 @@ export function TextField({
   name,
   value,
   onChange,
+  onBlur,
   error,
   hint,
   hintTone = 'muted',
@@ -52,6 +55,7 @@ export function TextField({
         autoComplete={autoComplete}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
       />

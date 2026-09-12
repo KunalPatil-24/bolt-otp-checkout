@@ -160,6 +160,11 @@ placed with the same email -- a guest order is not proof of owning the account.
   restart and is not shared between instances. That is acceptable for a speed
   bump and would not be for a security control; Redis is where it belongs at
   real volume.
+- **Client-side validation duplicates the server's rules rather than sharing
+  them**, since the two are separate packages. The duplication is made harmless
+  by keeping the client's checks deliberately looser: a frontend stricter than
+  the server would reject input the server would accept, and the user could not
+  get past it.
 - **No frontend tests.** The API has an integration suite; the React side was
   verified by hand, including the recognition race, which was reproduced by
   adding artificial latency to the endpoint.
