@@ -451,7 +451,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
             </p>
           )}
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
+          <button type="submit" className="btn btn-dark btn-block" disabled={submitting}>
             {submitting ? 'Submitting…' : 'Place order'}
           </button>
         </form>
