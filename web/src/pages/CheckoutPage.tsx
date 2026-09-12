@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, api, type SavedAddress, type User } from '../lib/api';
 import { useDebouncedValue } from '../lib/useDebouncedValue';
@@ -252,30 +252,42 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
   }, [user]);
 
   /**
-   * Fill the blanks from the saved address.
+   * Returns `base` with any empty address fields filled from the saved address.
    *
-   * Only empty fields are filled, never ones the user has already typed in --
-   * having a form overwrite what someone just entered is far worse than making
-   * them type it. Guarded by a ref so it happens once per sign-in rather than
-   * on every render, which would undo a field they deliberately cleared.
+   * A function rather than only an effect because two paths need it: arriving
+   * signed in, and starting a second order after placing one. Doing it only in
+   * an effect keyed on `savedAddress` meant the second order silently got an
+   * empty form -- the address had not changed, so nothing re-ran.
+   *
+   * Only empty fields are filled, never ones already typed in: a form that
+   * overwrites what someone just entered is worse than one that makes them type.
    */
+  const fillFromSavedAddress = useCallback(
+    (base: FormValues): FormValues => {
+      if (!savedAddress) return base;
+      return {
+        ...base,
+        phone: base.phone || savedAddress.phone,
+        addressLine1: base.addressLine1 || savedAddress.addressLine1,
+        addressLine2: base.addressLine2 || (savedAddress.addressLine2 ?? ''),
+        city: base.city || savedAddress.city,
+        state: base.state || savedAddress.state,
+        postalCode: base.postalCode || savedAddress.postalCode,
+        country: base.country || savedAddress.country,
+      };
+    },
+    [savedAddress],
+  );
+
+  /** Applies it on arrival, once, so a field the user clears stays cleared. */
   useEffect(() => {
     if (!savedAddress || savedAddressApplied.current) return;
     savedAddressApplied.current = true;
 
-    setForm((previous) => ({
-      ...previous,
-      phone: previous.phone || savedAddress.phone,
-      addressLine1: previous.addressLine1 || savedAddress.addressLine1,
-      addressLine2: previous.addressLine2 || (savedAddress.addressLine2 ?? ''),
-      city: previous.city || savedAddress.city,
-      state: previous.state || savedAddress.state,
-      postalCode: previous.postalCode || savedAddress.postalCode,
-      country: previous.country || savedAddress.country,
-    }));
+    setForm(fillFromSavedAddress);
     if (savedAddress.addressLine2) setShowAddressLine2(true);
     setUsingSavedAddress(true);
-  }, [savedAddress]);
+  }, [savedAddress, fillFromSavedAddress]);
 
   /** Empties the shipping fields so a different address can be entered. */
   function useDifferentAddress() {
@@ -374,7 +386,13 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
           className="btn btn-primary"
           onClick={() => {
             setConfirmation(null);
-            setForm(user ? { ...EMPTY_FORM, email: user.email } : EMPTY_FORM);
+            const blank = user ? { ...EMPTY_FORM, email: user.email } : EMPTY_FORM;
+            const next = fillFromSavedAddress(blank);
+            setForm(next);
+            // Keep the indicator honest: it must only claim the address was
+            // filled in when it actually was.
+            setUsingSavedAddress(next.addressLine1 !== '');
+            setShowAddressLine2(next.addressLine2 !== '');
           }}
         >
           Place another order
