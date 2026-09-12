@@ -1,9 +1,38 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="OTP-based login and checkout demo" />
     <title>Bolt — Checkout</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      /**
+       * Applies the stored theme before the first paint.
+       *
+       * This has to be inline and synchronous: if React set the theme after
+       * mounting, a returning dark-mode visitor would see a white flash first.
+       * Light is the default when nothing is stored -- deliberately, rather
+       * than following the operating system.
+       */
+      (function () {
+        try {
+          var stored = localStorage.getItem('bolt-theme');
+          if (stored === 'dark' || stored === 'light') {
+            document.documentElement.dataset.theme = stored;
+          }
+        } catch (e) {
+          /* private browsing can throw on localStorage; the default stands */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { api, type User } from './lib/api';
+import { useTheme } from './lib/useTheme';
+import { ThemeToggle } from './components/ThemeToggle';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -9,6 +11,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   /**
    * Ask the server who we are, once, on load.
@@ -51,6 +54,7 @@ export default function App() {
           <Link to="/register" className={navClass('/register')}>
             Register
           </Link>
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </nav>
       </header>
 
