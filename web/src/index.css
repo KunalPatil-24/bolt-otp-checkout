@@ -288,3 +288,27 @@ a { color: var(--accent); }
   .field-row { flex-direction: column; gap: 0; }
   .card { padding: 20px; }
 }
+
+/* --- order history ------------------------------------------------------- */
+.order-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+
+.order {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.order-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.order-ref { font-size: 12px; }
+
+.order-address { font-style: normal; font-size: 14px; line-height: 1.45; }
+.order-contact { margin: 8px 0 0; font-size: 13px; }

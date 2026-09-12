@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { api, type User } from './lib/api';
 import { CheckoutPage } from './pages/CheckoutPage';
+import { OrdersPage } from './pages/OrdersPage';
 import { RegisterPage } from './pages/RegisterPage';
 
 export default function App() {
@@ -41,6 +42,12 @@ export default function App() {
           <Link to="/" className={navClass('/')}>
             Checkout
           </Link>
+          {/* Only offered once there is something to see. */}
+          {user && (
+            <Link to="/orders" className={navClass('/orders')}>
+              Orders
+            </Link>
+          )}
           <Link to="/register" className={navClass('/register')}>
             Register
           </Link>
@@ -53,6 +60,7 @@ export default function App() {
         ) : (
           <Routes>
             <Route path="/" element={<CheckoutPage user={user} onUserChange={setUser} />} />
+            <Route path="/orders" element={<OrdersPage user={user} />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="*" element={<div className="card">Page not found.</div>} />
           </Routes>

@@ -68,11 +68,12 @@ web/src/
 | ------ | --------------------- | ------------------------------------------------ |
 | `GET`  | `/api/health`         | Liveness plus database reachability               |
 | `POST` | `/api/auth/register`  | Create a user, return the one-time code           |
-| `POST` | `/api/auth/recognize` | Is this email registered? Returns only a boolean  |
+| `POST` | `/api/auth/recognize` | Is this email registered? Returns a boolean + first name |
 | `POST` | `/api/auth/login`     | Verify a code, start a session                    |
 | `GET`  | `/api/auth/me`        | Current user, or `null`                           |
 | `POST` | `/api/auth/logout`    | End the session                                   |
 | `POST` | `/api/orders`         | Record a checkout submission                      |
+| `GET`  | `/api/orders`         | The signed-in user's own orders                   |
 
 Every failure returns the same shape: `{ error, message }`, plus a per-field
 `fields` map on validation errors so a form can highlight every bad input at
@@ -110,6 +111,9 @@ the user has already edited away from.
 **Failed logins are indistinguishable.** An unregistered email and a wrong code
 return the same status, the same message, and take the same time.
 
+**Order history is filtered by the session**, never by an id from the request, so
+changing a value in a URL cannot surface somebody else's orders.
+
 ### Known trade-offs
 
 - **No CSRF protection.** Cross-domain cookies require `SameSite=None`, which
@@ -120,13 +124,20 @@ return the same status, the same message, and take the same time.
 - **Rate limiting is per email**, so someone who knows an address can lock its
   owner out for the window. Keying on IP as well would reduce this, at the cost
   of users behind shared NAT.
-- **`/api/auth/recognize` is not rate limited**, so email addresses can be
-  enumerated quickly. It leaks only a boolean, but bulk enumeration should be
-  slowed.
+- **`/api/auth/recognize` reveals a registered user's first name**, so the
+  login prompt can greet them by it. That is a deliberate product trade — the
+  caller has proved nothing at that point — mitigated by a per-IP rate limit of
+  30 checks a minute, which raises the cost of bulk harvesting without removing
+  the leak. Nothing short of dropping the feature would remove it.
 - **Expired session rows are never cleaned up.** They are ignored correctly, but
   accumulate.
-- **No automated tests.** Every path was verified by hand, including the
-  recognition race, which was reproduced with artificial latency.
+- **The API's rate limiter is per-process and in memory**, so it resets on
+  restart and is not shared between instances. That is acceptable for a speed
+  bump and would not be for a security control; Redis is where it belongs at
+  real volume.
+- **No frontend tests.** The API has an integration suite; the React side was
+  verified by hand, including the recognition race, which was reproduced by
+  adding artificial latency to the endpoint.
 
 ---
 
@@ -167,6 +178,30 @@ npm run dev                   # http://localhost:5173
 
 `VITE_` variables are inlined into the built JavaScript and are public. Secrets
 never carry that prefix.
+
+---
+
+## Tests
+
+```bash
+cd api
+npm test
+```
+
+31 integration tests covering the behaviour the design decisions exist for, not
+the shape of the code: that the login code is never stored in plaintext, that
+ten simultaneous registrations of one email produce exactly one user, that an
+unknown email and a wrong code are indistinguishable, that a lockout refuses the
+correct code too, that an expired session whose row still exists does not
+authenticate, that logging out kills a token captured beforehand, that a forged
+`user_id` in a request body is ignored, and that an injection payload is stored
+as literal text.
+
+They use Node's built-in test runner rather than adding a framework, and drive
+the app in-process through supertest — which is what separating `app.ts` from
+`index.ts` is for: no port to bind and no server to tear down. The script
+creates and migrates a throwaway database (`TEST_DATABASE_URL` to override), so
+a fresh checkout needs no setup.
 
 ---
 

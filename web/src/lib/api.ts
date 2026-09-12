@@ -16,6 +16,19 @@
  */
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
+export type Order = {
+  id: string;
+  email: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  createdAt: string;
+};
+
 export type User = {
   id: string;
   email: string;
@@ -102,6 +115,10 @@ export const api = {
   me: () => request<{ user: User | null }>('/api/auth/me'),
 
   logout: () => request<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
+
+  /** The signed-in user's own orders. 401 if there is no session. */
+  myOrders: () =>
+    request<{ orders: Order[] }>('/api/orders'),
 
   createOrder: (input: Record<string, string>) =>
     request<{ orderId: string; createdAt: string; linkedToAccount: boolean }>('/api/orders', {
