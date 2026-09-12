@@ -39,6 +39,16 @@ const isTest = process.env.NODE_ENV === 'test';
 export type RecordedEmail = { to: string; code: string; purpose: string };
 export const recordedEmails: RecordedEmail[] = [];
 
+/**
+ * Makes the test transport report failure, so a test can check what happens
+ * when delivery does not succeed -- which is the case that decides whether a
+ * user is locked out.
+ */
+let failNextSends = false;
+export function setEmailFailure(shouldFail: boolean): void {
+  failNextSends = shouldFail;
+}
+
 /** Empties the record between tests. */
 export function clearRecordedEmails(): void {
   recordedEmails.length = 0;
@@ -64,6 +74,7 @@ export async function sendLoginCode(
   purpose: 'registered' | 'replacement',
 ): Promise<SendResult> {
   if (isTest) {
+    if (failNextSends) return { sent: false, reason: 'simulated_failure' };
     recordedEmails.push({ to, code, purpose });
     return { sent: true };
   }

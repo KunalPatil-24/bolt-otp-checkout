@@ -1,7 +1,7 @@
 import { after, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { api, agent, closePool, registerUser, resetDatabase } from './helpers.js';
-import { recordedEmails } from '../src/email.js';
+import { recordedEmails, setEmailFailure } from '../src/email.js';
 import { pool } from '../src/db.js';
 
 beforeEach(resetDatabase);
@@ -325,6 +325,25 @@ describe('POST /api/auth/request-code', () => {
     assert.deepEqual(known.body, unknown.body);
     assert.equal(recordedEmails.length, 1);
     assert.equal(recordedEmails[0]!.to, 'alice@example.com');
+  });
+
+  test('a failed send leaves the existing code working', async () => {
+    // The case that matters most: rotating first and mailing second would
+    // destroy a code the user still had and replace it with one that never
+    // arrives.
+    const { code: original } = await registerUser('alice@example.com');
+    setEmailFailure(true);
+
+    await api()
+      .post('/api/auth/request-code')
+      .send({ email: 'alice@example.com' })
+      .expect(200);
+
+    setEmailFailure(false);
+    await api()
+      .post('/api/auth/login')
+      .send({ email: 'alice@example.com', code: original })
+      .expect(200);
   });
 
   test('rate limits repeated requests for one address', async () => {

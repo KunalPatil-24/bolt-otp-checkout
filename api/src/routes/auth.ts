@@ -336,11 +336,26 @@ authRouter.post('/request-code', async (req, res) => {
   }
 
   const replacement = generateLoginCode();
+
+  // Send BEFORE storing. Rotating first and mailing second means a failed send
+  // -- an outage, a bounce, a provider that will not deliver to this address --
+  // destroys a code the user still had and replaces it with one that never
+  // arrives, locking them out permanently. A working credential is not thrown
+  // away until its replacement is known to have been delivered.
+  const delivery = await sendLoginCode(email, user.first_name, replacement, 'replacement');
+
+  if (!delivery.sent) {
+    console.error(`[auth] replacement code not delivered to ${email}: ${delivery.reason}`);
+    // The existing code still works, which is the safe outcome. The caller is
+    // told the same thing regardless, so this does not become an oracle either.
+    acknowledge();
+    return;
+  }
+
   await query(sql`
     UPDATE users SET login_code_hash = ${await hashLoginCode(replacement)}
      WHERE id = ${user.id}
   `);
 
-  await sendLoginCode(email, user.first_name, replacement, 'replacement');
   acknowledge();
 });

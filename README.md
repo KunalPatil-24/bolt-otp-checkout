@@ -140,7 +140,7 @@ placed with the same email -- a guest order is not proof of owning the account.
   is deliberate rather than overlooked: the assignment states the user "will
   need this code to log in later", so expiry would lock out anyone returning the
   next day.
-- **Requesting a replacement code invalidates the previous one immediately**, so
+- **Requesting a replacement code invalidates the previous one once delivered**, so
   anyone who knows an address can rotate a stranger's code and break the one
   they had saved. They gain nothing, since the new code goes to the owner's
   inbox, but it is a nuisance -- hence a low per-address limit. A production
