@@ -53,3 +53,64 @@ ordersRouter.post('/', async (req, res) => {
     linkedToAccount: user !== null,
   });
 });
+
+type OrderRow = {
+  id: string;
+  email: string;
+  phone: string;
+  address_line1: string;
+  address_line2: string | null;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
+  created_at: Date;
+};
+
+const toPublicOrder = (row: OrderRow) => ({
+  id: row.id,
+  email: row.email,
+  phone: row.phone,
+  addressLine1: row.address_line1,
+  addressLine2: row.address_line2,
+  city: row.city,
+  state: row.state,
+  postalCode: row.postal_code,
+  country: row.country,
+  createdAt: row.created_at,
+});
+
+/* ---------------------------------------------------------------------------
+ * GET /api/orders
+ *
+ * The signed-in user's own orders, newest first.
+ *
+ * Unlike the POST above, this one does require a session -- there is no
+ * sensible anonymous answer to "show me my orders", and returning an empty list
+ * to a signed-out caller would hide the reason.
+ *
+ * The filter is on the session's user id, never on anything the caller sends.
+ * An endpoint that took an id from the query string would let anyone read
+ * anyone else's order history by changing a number in the URL, which is among
+ * the most common real-world data leaks.
+ *
+ * Guest orders are unreachable here by construction: they have no user_id, so
+ * they match no one. That is the honest consequence of allowing checkout
+ * without an account.
+ * ------------------------------------------------------------------------- */
+ordersRouter.get('/', async (req, res) => {
+  const user = await getSessionUser(req);
+  if (!user) {
+    throw ApiError.unauthorized('not_signed_in', 'Sign in to see your orders.');
+  }
+
+  const { rows } = await query<OrderRow>(sql`
+    SELECT id, email, phone, address_line1, address_line2,
+           city, state, postal_code, country, created_at
+      FROM orders
+     WHERE user_id = ${user.id}
+     ORDER BY created_at DESC
+  `);
+
+  res.json({ orders: rows.map(toPublicOrder) });
+});

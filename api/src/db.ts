@@ -18,8 +18,24 @@ if (!databaseUrl) {
   );
 }
 
-/** Local Postgres does not speak TLS; hosted Postgres requires it. */
-const isLocal = /@(localhost|127\.0\.0\.1)/.test(databaseUrl);
+/**
+ * Local Postgres does not speak TLS; hosted Postgres requires it.
+ *
+ * The hostname is read by parsing the URL rather than pattern-matching the
+ * string. An earlier version looked for "@localhost", which silently treated a
+ * credential-free URL like postgres://localhost:5432/bolt as remote and then
+ * demanded SSL from a server that does not offer it.
+ */
+function isLocalDatabase(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch {
+    return false; // unparseable: assume remote, which is the safer default
+  }
+}
+
+const isLocal = isLocalDatabase(databaseUrl);
 
 /**
  * A pool of connections, not a single connection.

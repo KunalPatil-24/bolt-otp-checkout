@@ -63,3 +63,11 @@ setInterval(() => {
     else buckets.set(key, recent);
   }
 }, CLEANUP_INTERVAL_MS).unref();
+
+/**
+ * Clears every bucket. Exists for tests: the buckets live in module state, so
+ * without this one test's requests would count against the next one's limit.
+ */
+export function resetRateLimits(): void {
+  buckets.clear();
+}

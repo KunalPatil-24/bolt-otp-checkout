@@ -233,3 +233,8 @@ identifier is the IP address — imperfect because of shared NAT, IPv6 prefixes,
 and how cheaply addresses rotate. Also why the counter belongs in memory rather
 than Postgres for this endpoint, since it fires while the user types and the
 limit is a speed bump rather than a correctness guarantee. No code written.)
+
+## 20. Going beyond the requirements
+
+> Hey, we have done all the fundamental requirements given in the assignment?
+> Now can we improve the project even better that it impresses the judge.
