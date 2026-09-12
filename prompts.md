@@ -211,3 +211,25 @@ HashRouter, dropping routing, or a server-rendering framework. No code written;
 the rewrite was deferred to the deployment step.)
 
 > Use the rewrite rule for this problem then move towards the deployement stage
+
+## 19. Rate limiting an endpoint with no signed-in user
+
+> hey, I have idea, instead of just plain welcome we can do something like
+> welcome back{name}
+
+> How are you going to impose rate limiting if they haven't signed in?
+
+(Raised while considering whether to return the user's first name from
+/api/auth/recognize so the login prompt could greet them by name — which would
+reverse the earlier decision to return only a boolean, and was paired with a
+suggestion to rate limit that endpoint in mitigation.
+
+The answer covered why the login limiter's approach does not transfer: it keys
+on the email address, which works because guessing a code means hitting one
+address repeatedly, whereas enumeration queries many addresses once each and a
+per-email count never reaches its threshold. Defending it means keying on the
+caller rather than the target, and for an anonymous caller the only real
+identifier is the IP address — imperfect because of shared NAT, IPv6 prefixes,
+and how cheaply addresses rotate. Also why the counter belongs in memory rather
+than Postgres for this endpoint, since it fires while the user types and the
+limit is a speed bump rather than a correctness guarantee. No code written.)
