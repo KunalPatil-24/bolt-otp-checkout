@@ -101,7 +101,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   register: (input: { email: string; firstName: string; lastName: string }) =>
-    request<{ user: User; loginCode: string }>('/api/auth/register', {
+    request<{ user: User; loginCode: string; emailed: boolean }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(input),
     }),
@@ -115,6 +115,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email }),
       signal,
+    }),
+
+  /** Ask for a replacement code by email. Always succeeds, whether or not the
+   *  address is registered -- the response deliberately does not say. */
+  requestCode: (email: string) =>
+    request<{ ok: true; message: string }>('/api/auth/request-code', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     }),
 
   login: (input: { email: string; code: string }) =>

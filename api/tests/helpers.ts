@@ -2,6 +2,7 @@ import request from 'supertest';
 import { app } from '../src/app.js';
 import { pool } from '../src/db.js';
 import { resetRateLimits } from '../src/rateLimit.js';
+import { clearRecordedEmails } from '../src/email.js';
 
 /**
  * Drives the app in-process. No port is bound, no server is started, and
@@ -24,6 +25,7 @@ export const agent = () => request.agent(app);
 export async function resetDatabase(): Promise<void> {
   await pool.query('TRUNCATE orders, sessions, login_attempts, users RESTART IDENTITY CASCADE');
   resetRateLimits();
+  clearRecordedEmails();
 }
 
 /** Node runs each test file in its own process; each must release the pool. */

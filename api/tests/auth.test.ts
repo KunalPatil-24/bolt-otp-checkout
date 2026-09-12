@@ -1,6 +1,7 @@
 import { after, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { api, agent, closePool, registerUser, resetDatabase } from './helpers.js';
+import { recordedEmails } from '../src/email.js';
 import { pool } from '../src/db.js';
 
 beforeEach(resetDatabase);
@@ -271,3 +272,77 @@ describe('session lifecycle', () => {
     assert.equal(rows[0].n, 0);
   });
 });
+
+describe('POST /api/auth/request-code', () => {
+  test('emails a new code to a registered address', async () => {
+    await registerUser('alice@example.com', 'Alice');
+    clearSent();
+
+    await api()
+      .post('/api/auth/request-code')
+      .send({ email: 'alice@example.com' })
+      .expect(200);
+
+    assert.equal(recordedEmails.length, 1);
+    assert.equal(recordedEmails[0]!.to, 'alice@example.com');
+    assert.equal(recordedEmails[0]!.purpose, 'replacement');
+    assert.match(recordedEmails[0]!.code, /^\d{6}$/);
+  });
+
+  test('the new code works and the old one stops working', async () => {
+    const { code: original } = await registerUser('alice@example.com');
+    clearSent();
+
+    await api().post('/api/auth/request-code').send({ email: 'alice@example.com' }).expect(200);
+    const replacement = recordedEmails[0]!.code;
+    assert.notEqual(replacement, original);
+
+    await api()
+      .post('/api/auth/login')
+      .send({ email: 'alice@example.com', code: original })
+      .expect(401);
+
+    await api()
+      .post('/api/auth/login')
+      .send({ email: 'alice@example.com', code: replacement })
+      .expect(200);
+  });
+
+  test('an unknown address gets an identical response, and no email', async () => {
+    await registerUser('alice@example.com');
+    clearSent();
+
+    const known = await api()
+      .post('/api/auth/request-code')
+      .send({ email: 'alice@example.com' })
+      .expect(200);
+    const unknown = await api()
+      .post('/api/auth/request-code')
+      .send({ email: 'ghost@example.com' })
+      .expect(200);
+
+    // Identical to the caller; nothing reveals which address exists.
+    assert.deepEqual(known.body, unknown.body);
+    assert.equal(recordedEmails.length, 1);
+    assert.equal(recordedEmails[0]!.to, 'alice@example.com');
+  });
+
+  test('rate limits repeated requests for one address', async () => {
+    await registerUser('alice@example.com');
+
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const response = await api()
+        .post('/api/auth/request-code')
+        .send({ email: 'alice@example.com' });
+      statuses.push(response.status);
+    }
+
+    // Without a limit, anyone could keep rotating a stranger's code forever.
+    assert.ok(statuses.includes(429), `expected a 429, got ${statuses.join(',')}`);
+  });
+});
+
+function clearSent() {
+  recordedEmails.length = 0;
+}

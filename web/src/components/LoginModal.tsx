@@ -21,6 +21,8 @@ export function LoginModal({ email, firstName, onSuccess, onSkip }: LoginModalPr
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [requestingCode, setRequestingCode] = useState(false);
+  const [codeRequested, setCodeRequested] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Move focus into the dialog as it opens, so a keyboard or screen-reader user
@@ -59,6 +61,30 @@ export function LoginModal({ email, firstName, onSuccess, onSkip }: LoginModalPr
       inputRef.current?.select(); // ready for a retype, no manual clearing
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  /**
+   * Ask for a replacement code.
+   *
+   * The modal stays open afterwards: the new code arrives by email and is typed
+   * into the field that is already here, so closing would just make the user
+   * find their way back.
+   */
+  async function handleRequestCode() {
+    if (requestingCode) return;
+    setRequestingCode(true);
+    setError(null);
+    try {
+      await api.requestCode(email);
+      setCodeRequested(true);
+      setCode('');
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError ? caught.message : 'Could not send a new code.',
+      );
+    } finally {
+      setRequestingCode(false);
     }
   }
 
@@ -113,6 +139,24 @@ export function LoginModal({ email, firstName, onSuccess, onSkip }: LoginModalPr
               {error}
             </p>
           )}
+
+          <div className="modal-footnote">
+            {codeRequested ? (
+              <span className="modal-sent">
+                If that address is registered, a new code is on its way. Your
+                previous code no longer works.
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="link-button"
+                onClick={handleRequestCode}
+                disabled={requestingCode}
+              >
+                {requestingCode ? 'Sending…' : "Lost your code? Email me a new one"}
+              </button>
+            )}
+          </div>
 
           <div className="modal-actions">
             <button type="submit" className="btn btn-primary" disabled={submitting}>

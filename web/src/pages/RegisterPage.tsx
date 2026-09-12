@@ -7,7 +7,11 @@ export function RegisterPage() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [issued, setIssued] = useState<{ code: string; firstName: string } | null>(null);
+  const [issued, setIssued] = useState<{
+    code: string;
+    firstName: string;
+    emailed: boolean;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
 
   function update(field: keyof typeof form, value: string) {
@@ -28,7 +32,11 @@ export function RegisterPage() {
     setErrors({});
     try {
       const result = await api.register(form);
-      setIssued({ code: result.loginCode, firstName: result.user.firstName });
+      setIssued({
+        code: result.loginCode,
+        firstName: result.user.firstName,
+        emailed: result.emailed,
+      });
     } catch (caught) {
       if (caught instanceof ApiError) {
         // Field-level errors go under their inputs; anything else -- a taken
@@ -92,6 +100,9 @@ export function RegisterPage() {
         <p className="notice">
           <strong>Save this now.</strong> We store only an encrypted version, so it
           cannot be shown or recovered later.
+          {issued.emailed
+            ? " We've also emailed it to you."
+            : ' You can ask for a replacement by email at checkout.'}
         </p>
 
         <Link className="btn btn-primary btn-block" to="/">

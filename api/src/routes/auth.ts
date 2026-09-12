@@ -10,6 +10,7 @@ import {
 import { createSession, destroySession, getSessionUser } from '../session.js';
 import { isRateLimited } from '../rateLimit.js';
 import { fieldErrors, loginSchema, recognizeSchema, registerSchema } from '../validation.js';
+import { emailEnabled, sendLoginCode } from '../email.js';
 
 export const authRouter = Router();
 
@@ -61,7 +62,17 @@ authRouter.post('/register', async (req, res) => {
         RETURNING id, email, first_name, last_name
     `);
 
-    res.status(201).json({ user: toPublicUser(rows[0]!), loginCode });
+    // Best effort, and deliberately awaited only for its result rather than
+    // its success: a mail outage or an unverified recipient must not turn a
+    // completed registration into a failure. The code is in the response
+    // either way, which is also what the assignment asks for.
+    const delivery = await sendLoginCode(email, firstName, loginCode, 'registered');
+
+    res.status(201).json({
+      user: toPublicUser(rows[0]!),
+      loginCode,
+      emailed: delivery.sent,
+    });
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw ApiError.conflict(
@@ -247,4 +258,89 @@ authRouter.get('/me', async (req, res) => {
 authRouter.post('/logout', async (req, res) => {
   await destroySession(req, res);
   res.json({ ok: true });
+});
+
+/**
+ * Code recovery limits. Kept tight because rotating a code is destructive: the
+ * previous one stops working immediately.
+ */
+const REQUEST_CODE_MAX_PER_EMAIL = 3;
+const REQUEST_CODE_MAX_PER_IP = 8;
+const REQUEST_CODE_WINDOW_MS = 60 * 60 * 1000;
+
+/* ---------------------------------------------------------------------------
+ * POST /api/auth/request-code
+ *
+ * Issues a replacement code and emails it.
+ *
+ * Without this there is no account recovery at all: the code is displayed once
+ * and stored only as a hash, so losing it means losing the account permanently.
+ *
+ * Note it issues a NEW code rather than resending the old one, and that is not
+ * a choice -- only the hash is stored, so the original is genuinely
+ * unrecoverable. Hashing costs the ability to resend, which is the right trade
+ * and worth knowing is a trade.
+ *
+ * The response is identical whether or not the address is registered. Saying
+ * "no such account" here would turn recovery into a membership oracle, and
+ * /recognize already reveals that only because the product requires it.
+ *
+ * The trade-off worth stating: because a replacement immediately invalidates
+ * the previous code, anyone who knows an address can rotate a stranger's code
+ * and break the one they had written down. They gain nothing -- the new code
+ * goes to the owner's inbox -- but it is a nuisance, which is why the per-email
+ * limit is low. A production system would send a one-time link that only
+ * replaces the code when followed, so an ignored request changes nothing.
+ * ------------------------------------------------------------------------- */
+authRouter.post('/request-code', async (req, res) => {
+  const parsed = recognizeSchema.safeParse(req.body);
+
+  // Generic response for everything: a malformed address, an unknown one, and a
+  // real one all look the same from outside.
+  const acknowledge = () =>
+    res.json({
+      ok: true,
+      message: 'If that address is registered, a new code is on its way.',
+    });
+
+  if (!emailEnabled) {
+    // Rotating a code we cannot then deliver would lock the user out for good.
+    throw new ApiError(503, 'email_unavailable', 'Code recovery is not available.');
+  }
+
+  if (!parsed.success) {
+    acknowledge();
+    return;
+  }
+
+  const { email } = parsed.data;
+
+  if (
+    isRateLimited(`request-code:ip:${req.ip}`, REQUEST_CODE_MAX_PER_IP, REQUEST_CODE_WINDOW_MS) ||
+    isRateLimited(`request-code:email:${email}`, REQUEST_CODE_MAX_PER_EMAIL, REQUEST_CODE_WINDOW_MS)
+  ) {
+    throw ApiError.tooManyRequests('Too many requests. Please try again later.');
+  }
+
+  const { rows } = await query<{ id: string; first_name: string }>(sql`
+    SELECT id, first_name FROM users WHERE LOWER(email) = ${email}
+  `);
+  const user = rows[0];
+
+  if (!user) {
+    // Spend roughly the time a real rotation costs, so the response time does
+    // not answer the question the response body refuses to.
+    await equalizeVerificationTime();
+    acknowledge();
+    return;
+  }
+
+  const replacement = generateLoginCode();
+  await query(sql`
+    UPDATE users SET login_code_hash = ${await hashLoginCode(replacement)}
+     WHERE id = ${user.id}
+  `);
+
+  await sendLoginCode(email, user.first_name, replacement, 'replacement');
+  acknowledge();
 });

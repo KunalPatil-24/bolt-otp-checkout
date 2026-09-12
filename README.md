@@ -70,6 +70,7 @@ web/src/
 | `POST` | `/api/auth/register`  | Create a user, return the one-time code           |
 | `POST` | `/api/auth/recognize` | Is this email registered? Returns a boolean + first name |
 | `POST` | `/api/auth/login`     | Verify a code, start a session                    |
+| `POST` | `/api/auth/request-code` | Email a replacement code                       |
 | `GET`  | `/api/auth/me`        | Current user, or `null`                           |
 | `POST` | `/api/auth/logout`    | End the session                                   |
 | `POST` | `/api/orders`         | Record a checkout submission                      |
@@ -110,7 +111,15 @@ superseded check so a slow earlier response cannot open a modal for an address
 the user has already edited away from.
 
 **Failed logins are indistinguishable.** An unregistered email and a wrong code
-return the same status, the same message, and take the same time.
+return the same status, the same message, and take the same time. Code recovery
+answers identically for a registered and an unregistered address too, so it
+cannot be used to test whether an account exists.
+
+**Codes are emailed as well as shown.** Losing a code would otherwise mean
+losing the account permanently, since only the hash is stored. Note that hashing
+costs the ability to *resend* a code -- recovery has to issue a new one, because
+the original is genuinely unrecoverable. Email is optional: without an API key
+the app behaves exactly as before.
 
 **Order history is filtered by the session**, never by an id from the request, so
 changing a value in a URL cannot surface somebody else's orders.
@@ -127,7 +136,16 @@ placed with the same email -- a guest order is not proof of owning the account.
   gives up the browser's built-in defence. A production version needs CSRF
   tokens on state-changing routes.
 - **Codes never expire and are reusable**, which makes them closer to a static
-  password than a one-time code. Real OTPs are single-use and short-lived.
+  password than a one-time code. Real OTPs are single-use and short-lived. This
+  is deliberate rather than overlooked: the assignment states the user "will
+  need this code to log in later", so expiry would lock out anyone returning the
+  next day.
+- **Requesting a replacement code invalidates the previous one immediately**, so
+  anyone who knows an address can rotate a stranger's code and break the one
+  they had saved. They gain nothing, since the new code goes to the owner's
+  inbox, but it is a nuisance -- hence a low per-address limit. A production
+  system would email a one-time link that only replaces the code when followed,
+  so an ignored request changes nothing.
 - **Rate limiting is per email**, so someone who knows an address can lock its
   owner out for the window. Keying on IP as well would reduce this, at the cost
   of users behind shared NAT.
@@ -174,6 +192,8 @@ npm run dev                   # http://localhost:5173
 | -------------- | ------------------------------------------------- |
 | `DATABASE_URL` | Postgres connection string                         |
 | `WEB_ORIGINS`  | Comma-separated browser origins allowed by CORS    |
+| `RESEND_API_KEY` | Optional. Enables emailing codes and recovery    |
+| `EMAIL_FROM`   | Optional. Defaults to Resend's shared sender       |
 | `PORT`         | Port to listen on (the host sets this in production)|
 | `NODE_ENV`     | `development` or `production`                      |
 
