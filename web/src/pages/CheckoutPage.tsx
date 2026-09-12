@@ -70,6 +70,19 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
   const alreadyChecked = useRef(new Set<string>());
   const dismissed = useRef(new Set<string>());
 
+  /**
+   * Bumped to force the recognition check to run again for an address it has
+   * already answered "no" for.
+   *
+   * The check is keyed on the debounced email, so it only runs when that value
+   * changes. That is right while typing and wrong afterwards: someone who
+   * reaches checkout, finds they have no account, registers in another tab and
+   * comes back is looking at a page whose email never changed, so nothing ever
+   * re-asks. A "no" is only true at the moment it was given.
+   */
+  const [recheckNonce, setRecheckNonce] = useState(0);
+  const lastCheckAt = useRef(0);
+
   const debouncedEmail = useDebouncedValue(form.email, RECOGNITION_DEBOUNCE_MS);
   const normalizedEmail = debouncedEmail.trim().toLowerCase();
   const emailIsComplete = EMAIL_PATTERN.test(normalizedEmail);
@@ -107,6 +120,7 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
      * response still costs a round trip and server work.
      */
     const controller = new AbortController();
+    lastCheckAt.current = Date.now();
     setChecking(true);
 
     api
@@ -139,7 +153,50 @@ export function CheckoutPage({ user, onUserChange }: CheckoutPageProps) {
       });
 
     return () => controller.abort();
-  }, [normalizedEmail, emailIsComplete, user]);
+    // recheckNonce is in the dependencies purely so that bumping it re-runs
+    // this. The guards above still apply: an address already known to be
+    // registered, or whose prompt was dismissed, is not asked about again.
+  }, [normalizedEmail, emailIsComplete, user, recheckNonce]);
+
+  /**
+   * Re-ask when the user comes back to the tab.
+   *
+   * Returning to a tab is the moment the answer is most likely to have gone
+   * stale, because leaving it is how you register somewhere else. Both events
+   * are listened for because they fire in different situations -- switching
+   * tabs raises visibilitychange, switching windows raises focus -- and the
+   * interval guard below collapses the cases where both fire at once.
+   *
+   * The guard also stops rapid switching turning into a burst of requests,
+   * which would otherwise be an easy way to spend the whole rate limit.
+   */
+  useEffect(() => {
+    const MIN_INTERVAL_MS = 5000;
+
+    function requestRecheck() {
+      const now = Date.now();
+      if (now - lastCheckAt.current < MIN_INTERVAL_MS) return;
+      lastCheckAt.current = now;
+      setRecheckNonce((current) => current + 1);
+    }
+
+    // Only when becoming visible; this event also fires on the way out.
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') requestRecheck();
+    }
+
+    // Focus is NOT gated on visibilityState. A window can hold focus while the
+    // document reports itself hidden -- inside an embedded or backgrounded
+    // frame, for instance -- and refusing to act on a real focus event because
+    // of that would make this silently do nothing. The interval guard is what
+    // keeps it from firing too often, not the visibility check.
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', requestRecheck);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', requestRecheck);
+    };
+  }, []);
 
   /**
    * Keep the email field in step with the signed-in account.
