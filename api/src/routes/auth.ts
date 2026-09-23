@@ -346,10 +346,16 @@ authRouter.post('/request-code', async (req, res) => {
 
   if (!delivery.sent) {
     console.error(`[auth] replacement code not delivered to ${email}: ${delivery.reason}`);
-    // The existing code still works, which is the safe outcome. The caller is
-    // told the same thing regardless, so this does not become an oracle either.
-    acknowledge();
-    return;
+    // The existing code still works, which is the safe outcome -- and the user
+    // is told so, rather than left waiting on an email that is never coming.
+    // Only a registered address reaches this point, so the failure does say
+    // the address exists; /recognize already answers that for anyone, so
+    // nothing is revealed that was not already.
+    throw new ApiError(
+      502,
+      'email_failed',
+      "We couldn't send the email just now. Your current code still works -- please try again in a few minutes.",
+    );
   }
 
   await query(sql`

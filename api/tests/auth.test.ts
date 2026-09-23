@@ -334,10 +334,13 @@ describe('POST /api/auth/request-code', () => {
     const { code: original } = await registerUser('alice@example.com');
     setEmailFailure(true);
 
-    await api()
+    const response = await api()
       .post('/api/auth/request-code')
       .send({ email: 'alice@example.com' })
-      .expect(200);
+      .expect(502);
+
+    // Said plainly, not "a new code is on its way" for an email never sent.
+    assert.equal(response.body.error, 'email_failed');
 
     setEmailFailure(false);
     await api()

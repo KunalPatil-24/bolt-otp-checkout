@@ -4,27 +4,47 @@
 // email silently does nothing, locally only, since a host injects real
 // environment variables and would have worked.
 import 'dotenv/config';
+import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 
 /**
  * Email delivery for login codes.
  *
- * Entirely optional: with no RESEND_API_KEY the app runs exactly as before and
- * codes are only shown on screen. That keeps a fresh checkout and the test
+ * Entirely optional: with no mail credentials the app runs exactly as before
+ * and codes are only shown on screen. That keeps a fresh checkout and the test
  * suite working with no third-party account, and it is why every function here
  * reports whether it sent rather than throwing.
+ *
+ * Two transports, Gmail preferred when both are configured:
+ *
+ *  - Gmail over SMTP, with an app password. Delivers to any address from the
+ *    account's own mailbox, with no domain to own or verify -- which is why it
+ *    is the default for a project without one.
+ *  - Resend. Its shared sender works without a domain too, but it will only
+ *    deliver to the address the Resend account was created with, so every
+ *    other user's email is refused. Verifying a domain of your own lifts that;
+ *    set EMAIL_FROM to an address on it.
  */
 
-const apiKey = process.env.RESEND_API_KEY;
+const gmailUser = process.env.GMAIL_USER;
+// Google displays the password in groups of four; the spaces are not part of it.
+const gmailPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
+const resendKey = process.env.RESEND_API_KEY;
 
-/**
- * Resend's shared sender works without owning a domain, but it will only
- * deliver to the address the Resend account was created with. Sending to a
- * verified domain of your own lifts that -- set EMAIL_FROM once you have one.
- */
-const from = process.env.EMAIL_FROM ?? 'Bolt Checkout <onboarding@resend.dev>';
+const gmail =
+  gmailUser && gmailPassword
+    ? nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: gmailUser, pass: gmailPassword },
+      })
+    : null;
+const resend = !gmail && resendKey ? new Resend(resendKey) : null;
 
-const client = apiKey ? new Resend(apiKey) : null;
+// Gmail rewrites the From address to the authenticated account anyway, so only
+// the display name is ours to choose there.
+const from = gmail
+  ? `Bolt Checkout <${gmailUser}>`
+  : (process.env.EMAIL_FROM ?? 'Bolt Checkout <onboarding@resend.dev>');
 
 /**
  * Under test, nothing is actually sent.
@@ -54,7 +74,7 @@ export function clearRecordedEmails(): void {
   recordedEmails.length = 0;
 }
 
-export const emailEnabled = client !== null || isTest;
+export const emailEnabled = gmail !== null || resend !== null || isTest;
 
 type SendResult = { sent: boolean; reason?: string };
 
@@ -79,7 +99,7 @@ export async function sendLoginCode(
     return { sent: true };
   }
 
-  if (!client) return { sent: false, reason: 'email_not_configured' };
+  if (!gmail && !resend) return { sent: false, reason: 'email_not_configured' };
 
   const subject =
     purpose === 'registered' ? 'Your Bolt login code' : 'Your new Bolt login code';
@@ -89,24 +109,30 @@ export async function sendLoginCode(
       ? 'Thanks for registering. Use this code to sign in at checkout.'
       : 'Here is a new code. Your previous one no longer works.';
 
-  try {
-    const { error } = await client.emails.send({
-      from,
-      to,
-      subject,
-      // Both parts are supplied: many clients and most corporate gateways
-      // prefer or strip to text, and a code nobody can read is useless.
-      text: `Hi ${firstName},\n\n${intro}\n\n${code}\n\nIf you didn't expect this email, you can ignore it.`,
-      html: `
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#04091a">
-          <p style="font-size:16px;margin:0 0 8px">Hi ${escapeHtml(firstName)},</p>
-          <p style="font-size:15px;color:#5b6076;margin:0 0 24px">${intro}</p>
-          <div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:34px;font-weight:700;letter-spacing:.18em;text-align:center;padding:22px;background:#f8f6fe;border:1px dashed #cfcce2;border-radius:14px">${code}</div>
-          <p style="font-size:13px;color:#5b6076;margin:24px 0 0">If you didn't expect this email, you can ignore it.</p>
-        </div>
-      `,
-    });
+  // Both parts are supplied: many clients and most corporate gateways prefer or
+  // strip to text, and a code nobody can read is useless.
+  const message = {
+    from,
+    to,
+    subject,
+    text: `Hi ${firstName},\n\n${intro}\n\n${code}\n\nIf you didn't expect this email, you can ignore it.`,
+    html: `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#04091a">
+        <p style="font-size:16px;margin:0 0 8px">Hi ${escapeHtml(firstName)},</p>
+        <p style="font-size:15px;color:#5b6076;margin:0 0 24px">${intro}</p>
+        <div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:34px;font-weight:700;letter-spacing:.18em;text-align:center;padding:22px;background:#f8f6fe;border:1px dashed #cfcce2;border-radius:14px">${code}</div>
+        <p style="font-size:13px;color:#5b6076;margin:24px 0 0">If you didn't expect this email, you can ignore it.</p>
+      </div>
+    `,
+  };
 
+  try {
+    if (gmail) {
+      await gmail.sendMail(message);
+      return { sent: true };
+    }
+
+    const { error } = await resend!.emails.send(message);
     if (error) {
       console.error('[email] send failed:', error.message);
       return { sent: false, reason: error.message };
@@ -114,7 +140,7 @@ export async function sendLoginCode(
     return { sent: true };
   } catch (caught) {
     console.error('[email] send threw:', caught);
-    return { sent: false, reason: 'exception' };
+    return { sent: false, reason: caught instanceof Error ? caught.message : 'exception' };
   }
 }
 

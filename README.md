@@ -197,8 +197,10 @@ npm run dev                   # http://localhost:5173
 | -------------- | ------------------------------------------------- |
 | `DATABASE_URL` | Postgres connection string                         |
 | `WEB_ORIGINS`  | Comma-separated browser origins allowed by CORS    |
-| `RESEND_API_KEY` | Optional. Enables emailing codes and recovery    |
-| `EMAIL_FROM`   | Optional. Defaults to Resend's shared sender       |
+| `GMAIL_USER`   | Optional. Gmail address that sends login codes     |
+| `GMAIL_APP_PASSWORD` | Optional. Its app password; with `GMAIL_USER`, enables emailing codes and recovery |
+| `RESEND_API_KEY` | Optional. Alternative to Gmail, used only when it is unset. Without a verified domain it only delivers to the Resend account's own address |
+| `EMAIL_FROM`   | Optional, Resend only. Defaults to Resend's shared sender |
 | `PORT`         | Port to listen on (the host sets this in production)|
 | `NODE_ENV`     | `development` or `production`                      |
 
