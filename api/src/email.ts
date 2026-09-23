@@ -15,16 +15,24 @@ import { Resend } from 'resend';
  * suite working with no third-party account, and it is why every function here
  * reports whether it sent rather than throwing.
  *
- * Two transports, Gmail preferred when both are configured:
+ * Three transports, used in this order of preference when several are set:
  *
+ *  - Brevo, over its HTTPS API. Delivers to any address from a single sender
+ *    address you confirm by email, with no domain to own. It is first because
+ *    it is the one that works on Render's free tier, which blocks outbound
+ *    SMTP ports -- so Gmail below works locally but not there.
  *  - Gmail over SMTP, with an app password. Delivers to any address from the
- *    account's own mailbox, with no domain to own or verify -- which is why it
- *    is the default for a project without one.
+ *    account's own mailbox, with no domain to own or verify. Needs a host that
+ *    allows outbound SMTP.
  *  - Resend. Its shared sender works without a domain too, but it will only
  *    deliver to the address the Resend account was created with, so every
  *    other user's email is refused. Verifying a domain of your own lifts that;
  *    set EMAIL_FROM to an address on it.
  */
+
+const brevoKey = process.env.BREVO_API_KEY;
+const brevoSender = process.env.BREVO_SENDER_EMAIL;
+const brevo = brevoKey && brevoSender ? { key: brevoKey, sender: brevoSender } : null;
 
 const gmailUser = process.env.GMAIL_USER;
 // Google displays the password in groups of four; the spaces are not part of it.
@@ -32,13 +40,13 @@ const gmailPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
 const resendKey = process.env.RESEND_API_KEY;
 
 const gmail =
-  gmailUser && gmailPassword
+  !brevo && gmailUser && gmailPassword
     ? nodemailer.createTransport({
         service: 'gmail',
         auth: { user: gmailUser, pass: gmailPassword },
       })
     : null;
-const resend = !gmail && resendKey ? new Resend(resendKey) : null;
+const resend = !brevo && !gmail && resendKey ? new Resend(resendKey) : null;
 
 // Gmail rewrites the From address to the authenticated account anyway, so only
 // the display name is ours to choose there.
@@ -74,7 +82,7 @@ export function clearRecordedEmails(): void {
   recordedEmails.length = 0;
 }
 
-export const emailEnabled = gmail !== null || resend !== null || isTest;
+export const emailEnabled = brevo !== null || gmail !== null || resend !== null || isTest;
 
 type SendResult = { sent: boolean; reason?: string };
 
@@ -99,7 +107,7 @@ export async function sendLoginCode(
     return { sent: true };
   }
 
-  if (!gmail && !resend) return { sent: false, reason: 'email_not_configured' };
+  if (!brevo && !gmail && !resend) return { sent: false, reason: 'email_not_configured' };
 
   const subject =
     purpose === 'registered' ? 'Your Bolt login code' : 'Your new Bolt login code';
@@ -127,6 +135,28 @@ export async function sendLoginCode(
   };
 
   try {
+    if (brevo) {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': brevo.key, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sender: { name: 'Bolt Checkout', email: brevo.sender },
+          to: [{ email: to }],
+          subject,
+          textContent: message.text,
+          htmlContent: message.html,
+        }),
+        // A hung request would hold the user's click open indefinitely.
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        const detail = await response.text();
+        console.error(`[email] send failed: ${response.status} ${detail}`);
+        return { sent: false, reason: `brevo_${response.status}` };
+      }
+      return { sent: true };
+    }
+
     if (gmail) {
       await gmail.sendMail(message);
       return { sent: true };

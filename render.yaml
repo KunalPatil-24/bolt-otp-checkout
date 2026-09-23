@@ -40,3 +40,9 @@ services:
         sync: false
       - key: WEB_ORIGINS
         sync: false
+      # Login-code email. Brevo rather than Gmail: free web services cannot
+      # reach SMTP ports, and Brevo sends over HTTPS.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
