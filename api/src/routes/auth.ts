@@ -146,8 +146,9 @@ authRouter.post('/recognize', async (req, res) => {
  * Login rate limit: at most this many failed attempts per email per window.
  *
  * A 6-digit code is 10^6 possibilities; at 100 requests a second an attacker
- * expects to find one in under two hours. Five attempts per quarter hour turns
- * that into roughly 28 years.
+ * expects to find one in under two hours. Five attempts per quarter hour (20 an
+ * hour) turns that into roughly 3 years on average, and under 6 to try every
+ * code.
  *
  * Keyed on the email and stored in Postgres, unlike the recognise limiter
  * above: guessing a code means hitting one address repeatedly, so counting per

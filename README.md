@@ -90,9 +90,10 @@ The code is shown once at registration and cannot be recovered.
 
 **Login is rate limited** — five failures per email per fifteen minutes,
 recorded in `login_attempts`. A 6-digit code is only 10⁶ possibilities; at 100
-guesses a second that is under two hours without a limit, and roughly 28 years
-with one. Hashing and rate limiting defend *different* threats: hashing protects
-a leaked database, rate limiting protects the live login.
+guesses a second that is under two hours without a limit, and roughly 3 years
+on average with one (under 6 to try every code). Hashing and rate limiting
+defend *different* threats: hashing protects a leaked database, rate limiting
+protects the live login.
 
 **Sessions are opaque random tokens, stored hashed.** The browser holds the
 token in an `httpOnly` cookie, so an XSS bug cannot read it; only its SHA-256
