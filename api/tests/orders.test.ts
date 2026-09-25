@@ -38,6 +38,21 @@ describe('POST /api/orders', () => {
     assert.equal(rows[0].first_name, 'Alice');
   });
 
+  test('a signed-in order uses the account email, not one sent in the body', async () => {
+    // 1. SET UP: Alice logs in
+    const signedIn = await signedInAgent('alice@example.com', 'Alice');
+
+    // 2. DO: Alice sends an order with someone else's email typed in by hand
+    await signedIn
+      .post('/api/orders')
+      .send({ ...validOrder, email: 'someone-else@example.com' })
+      .expect(201);
+
+    // 3. CHECK: which email did the database actually save?
+    const { rows } = await pool.query('SELECT email FROM orders');
+    assert.equal(rows[0].email, 'alice@example.com');
+  });
+
   test('ignores a user_id sent in the body', async () => {
     // The single most important property of this endpoint: the body is a claim,
     // the cookie is proof. Anyone could type someone else's id into the JSON.

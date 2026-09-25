@@ -41,7 +41,7 @@ ordersRouter.post('/', async (req, res) => {
     INSERT INTO orders
            (user_id, email, phone, address_line1, address_line2,
             city, state, postal_code, country)
-    VALUES (${user?.id ?? null}, ${order.email}, ${order.phone},
+    VALUES (${user?.id ?? null}, ${user?.email ?? order.email}, ${order.phone},
             ${order.addressLine1}, ${order.addressLine2 || null},
             ${order.city}, ${order.state}, ${order.postalCode}, ${order.country})
  RETURNING id, created_at
