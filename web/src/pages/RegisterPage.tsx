@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ApiError, api } from '../lib/api';
 import { TextField } from '../components/TextField';
+import { validateField } from '../lib/validateField';
 
 export function RegisterPage() {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '' });
@@ -27,6 +28,14 @@ export function RegisterPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (submitting) return; // a double-click must not create two accounts
+
+    // A malformed address is caught here rather than costing a round trip. The
+    // server still validates it, since anyone can call the API directly.
+    const emailProblem = validateField('email', form.email);
+    if (emailProblem) {
+      setErrors({ email: emailProblem });
+      return;
+    }
 
     setSubmitting(true);
     setErrors({});
@@ -148,6 +157,12 @@ export function RegisterPage() {
           value={form.email}
           error={errors.email}
           onChange={(value) => update('email', value)}
+          onBlur={() => {
+            // An empty field is left alone on blur; tabbing past it is not a mistake yet.
+            if (form.email.trim() === '') return;
+            const problem = validateField('email', form.email);
+            if (problem) setErrors((previous) => ({ ...previous, email: problem }));
+          }}
         />
 
         {errors.form && (
