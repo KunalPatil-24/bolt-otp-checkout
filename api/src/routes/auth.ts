@@ -223,9 +223,19 @@ authRouter.post('/login', async (req, res) => {
     // be gratuitous.
     throw ApiError.unauthorized('invalid_code', 'That code is not correct.');
   }
+
+  // A correct code proves ownership, so earlier failures should no longer count
+  // against the owner -- otherwise a few typos followed by a successful login
+  // leave them one mistake from a lockout. Only failures are cleared; the
+  // successful rows stay as the audit trail. Done before the session exists,
+  // so if this fails the user is simply not signed in, rather than signed in
+  // behind an error message.
   await query(sql`
-    DELETE FROM login_attemps WHERE LOWER(email) = ${email}
+    DELETE FROM login_attempts
+     WHERE LOWER(email) = ${email}
+       AND succeeded = false
   `);
+
   await createSession(user.id, res);
   res.json({ user: toPublicUser(user) });
 });

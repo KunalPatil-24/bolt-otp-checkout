@@ -200,18 +200,31 @@ describe('POST /api/auth/login', () => {
     await api().post('/api/auth/login').send({ email: 'alice@example.com', code }).expect(429);
   });
 
-  test('records attempts for the audit trail', async () => {
+  test('records attempts, and a correct code clears the earlier failures', async () => {
     const { code } = await registerUser('alice@example.com');
     await api().post('/api/auth/login').send({ email: 'alice@example.com', code: '000000' });
     await api().post('/api/auth/login').send({ email: 'alice@example.com', code });
 
+    // The success stays as the audit trail; the failure before it is cleared,
+    // because the correct code proved the attempts were the owner's own.
     const { rows } = await pool.query(
       'SELECT succeeded, count(*)::int AS n FROM login_attempts GROUP BY succeeded ORDER BY succeeded',
     );
-    assert.deepEqual(rows, [
-      { succeeded: false, n: 1 },
-      { succeeded: true, n: 1 },
-    ]);
+    assert.deepEqual(rows, [{ succeeded: true, n: 1 }]);
+  });
+
+  test('failures before a successful login do not count toward a later lockout', async () => {
+    const { code } = await registerUser('alice@example.com');
+    const login = (attempt: string) =>
+      api().post('/api/auth/login').send({ email: 'alice@example.com', code: attempt });
+
+    for (let i = 0; i < 4; i++) await login('000000').expect(401);
+    await login(code).expect(200);
+
+    // Four fresh mistakes after signing in. Had the first four still counted,
+    // the second of these would already be refused with 429.
+    for (let i = 0; i < 4; i++) await login('000000').expect(401);
+    await login(code).expect(200);
   });
 });
 
