@@ -223,7 +223,9 @@ authRouter.post('/login', async (req, res) => {
     // be gratuitous.
     throw ApiError.unauthorized('invalid_code', 'That code is not correct.');
   }
-
+  await query(sql`
+    DELETE FROM login_attemps WHERE LOWER(email) = ${email}
+  `);
   await createSession(user.id, res);
   res.json({ user: toPublicUser(user) });
 });
