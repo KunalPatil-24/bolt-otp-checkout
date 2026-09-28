@@ -257,3 +257,54 @@ rest of the page, or the native dialog element with showModal.)
 
 > What other features can we augment the app with? Not adding unnecessary
 > complexity but adding great features.
+
+## 23. Duplicate orders and idempotency
+
+> What if a customer clicks 'Place order' twice, or the network retries?
+
+(Covered why a double-click is already handled — the button is disabled while
+submitting — but a network retry is not: when an order is saved and the reply
+is lost, the browser cannot tell that apart from a failure, so a retry creates
+a second order. The standard fix is an idempotency key under a unique
+constraint.)
+
+> Hey, I want to understand this concept of idempotency. Why it is needed in
+> our project? What is it? How does it work?
+
+> But the JavaScript in the frontend generated the UUID for each order, what
+> ensures that it will send the same idempotent key for both the orders, it
+> can be different.
+
+(Nothing does, unless the frontend is written for it: the key has to be created
+once when checkout starts and kept until the order is confirmed — in component
+state, and in sessionStorage to survive a refresh. A key generated on each
+click would make every retry look like a new order. Not implemented; recorded
+as a known gap.)
+
+## 24. Whether serialising login attempts scales
+
+(The login rate limit counts failures and only records the new attempt after
+bcrypt, so simultaneous guesses all read the old count — 30 concurrent wrong
+codes let 25 through a limit of 5. The proposed fix was to make the check and
+the record happen one attempt at a time.)
+
+> Hey, I didn't understand the solution part.
+> Suppose if the attacker sends 50 login request at time t, at current setup,
+> all will be accepted. This I understand, what I don't understand is what you
+> are proposing.
+> From what I understood you are proposing is that instead of parallelly
+> writing all the 50 requests we will make a queue and let the request write
+> one by one in the database.
+>
+> But then my next question would be won't this architecture make our writing
+> incredebly slow? Suppose our application grows to million users, and hundreds
+> of incoming requests are coming, then how is it possible to queue them in a
+> single queue?
+
+(It is not one queue: the lock is per email, so only attempts against the same
+address wait for each other. Different users never do, and a real user sends
+one attempt at a time, so in practice only an attacker hammering one account
+waits — which is the point. Once five failures are recorded, the rest are
+refused before bcrypt runs. A lock-free alternative records the attempt first
+and counts afterwards, so each request's count includes every attempt ahead of
+it. The fix itself is not yet implemented; the race remains a known gap.)
